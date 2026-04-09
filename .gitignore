@@ -1,0 +1,51 @@
+# ==========================================
+# MASTER .GITIGNORE FOR SMART HOME MONOREPO
+# ==========================================
+
+# ------------------------------------------
+# 1. OS & ENVIRONMENT HIDDEN FILES
+# ------------------------------------------
+.DS_Store
+**/.DS_Store
+*.log
+Thumbs.db
+
+# ------------------------------------------
+# 2. IDE & EDITOR FILES
+# ------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# ------------------------------------------
+# 3. BACKEND (Node.js / Express / PostgreSQL)
+# ------------------------------------------
+backend/node_modules/
+backend/.env
+backend/npm-debug.log*
+backend/yarn-error.log*
+
+# ------------------------------------------
+# 4. FRONTEND (Flutter / Dart)
+# ------------------------------------------
+# Dart/Pub dependencies
+frontend/.dart_tool/
+frontend/.packages
+frontend/.pub-cache/
+frontend/.pub/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+
+# Flutter build folders
+frontend/build/
+frontend/ios/Flutter/.last_build_id
+frontend/android/app/debug
+frontend/android/app/profile
+frontend/android/app/release
+
+# Generated code and symbolication
+frontend/**/*.map.json
+frontend/**/*.symbols
+frontend/**/doc/api/
