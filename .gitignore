@@ -9,6 +9,11 @@
 **/.DS_Store
 *.log
 Thumbs.db
+.env
+.venv
+env/
+venv/
+ENV/
 
 # ------------------------------------------
 # 2. IDE & EDITOR FILES
@@ -18,34 +23,67 @@ Thumbs.db
 *.iml
 *.ipr
 *.iws
+.project
+.pydevproject
+.settings/
 
 # ------------------------------------------
-# 3. BACKEND (Node.js / Express / PostgreSQL)
+# 3. BACKEND (Python / FastAPI / PostgreSQL)
 # ------------------------------------------
-backend/node_modules/
+# Byte-compiled / optimized / DLL files
+**/__pycache__/
+**/*.py[cod]
+**/*$py.class
+
+# Python Virtual Environment (CRITICAL)
+backend/venv/
+backend/env/
+
+# Local Environment Variables
 backend/.env
-backend/npm-debug.log*
-backend/yarn-error.log*
+
+# AI Models (Large files - do not upload to Git)
+# We ignore .pt and .weights because they are 50MB+ 
+# and should be downloaded/moved manually.
+backend/ml_models/*.pt
+backend/ml_models/*.onnx
+backend/ml_models/*.weights
+
+# Local Storage (Your intruder images)
+# Do not upload your actual security photos to Git!
+backend/static/alerts/
+!backend/static/alerts/.gitkeep
 
 # ------------------------------------------
-# 4. FRONTEND (Flutter / Dart)
+# 4. mobile_app (Flutter / Dart)
 # ------------------------------------------
 # Dart/Pub dependencies
-frontend/.dart_tool/
-frontend/.packages
-frontend/.pub-cache/
-frontend/.pub/
-frontend/.flutter-plugins
-frontend/.flutter-plugins-dependencies
+mobile_app/.dart_tool/
+mobile_app/.packages
+mobile_app/.pub-cache/
+mobile_app/.pub/
+mobile_app/.metadata
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
 
 # Flutter build folders
-frontend/build/
-frontend/ios/Flutter/.last_build_id
-frontend/android/app/debug
-frontend/android/app/profile
-frontend/android/app/release
+mobile_app/build/
+
+# Android specific
+mobile_app/android/app/debug
+mobile_app/android/app/profile
+mobile_app/android/app/release
+mobile_app/android/local.properties
+mobile_app/android/key.properties
+mobile_app/android/*.keystore
+mobile_app/android/*.jks
+
+# iOS specific
+mobile_app/ios/Flutter/.last_build_id
+mobile_app/ios/Flutter/Generated.xcconfig
+mobile_app/ios/Flutter/flutter_export_environment.sh
 
 # Generated code and symbolication
-frontend/**/*.map.json
-frontend/**/*.symbols
-frontend/**/doc/api/
+mobile_app/**/*.map.json
+mobile_app/**/*.symbols
+mobile_app/**/doc/api/
