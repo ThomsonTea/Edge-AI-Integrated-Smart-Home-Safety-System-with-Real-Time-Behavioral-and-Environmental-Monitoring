@@ -4,16 +4,17 @@ import requests
 import time
 import os
 
+# PERFORMANCE: Use UDP to reduce lag on the RTSP stream
 os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'
 
 RTSP_URL = "rtsp://ThomsonTea:Tyj030903@192.168.0.44:554/stream1"
-# Load a pretrained YOLO model (nano - fastest)
-model = YOLO("models/yolo26n.pt")
-
 API_URL = "https://api.philous.me/ai_event"
 
+model = YOLO("models/yolo26n.pt")
+
 def start_detection():
-    # Use the RTSP URL instead of 0
+    last_send_time = 0
+    
     cap = cv2.VideoCapture(RTSP_URL)
 
     if not cap.isOpened():
@@ -28,9 +29,38 @@ def start_detection():
             print("⚠️ Dropped frame... reconnecting.")
             continue
 
-        # AI Detection logic (keep your existing logic here)
-        results = model(frame, imgsz=320, conf=0.5, classes=[0], verbose=False)
+        # 1. Run AI Detection
+        results = model(frame, imgsz=320, conf=0.7, classes=[0], verbose=False)
         
+        # 2. Check if a person is in the frame
+        for r in results:
+            if len(r.boxes) > 0:
+                current_time = time.time()
+                
+                # Only execute this block if 5 seconds have passed since the last alert
+                if current_time - last_send_time > 5:  
+                    conf = float(r.boxes.conf[0])
+                    print(f"⚠️ [DETECTED] Person found with {conf:.2f} confidence")
+                    
+                    # 3. Prepare the data for your Database
+                    payload = {
+                        "event_type": "Person Detected",
+                        "confidence_score": conf,
+                        "image_path": "storage/alerts/latest.jpg" 
+                    }
+                    
+                    # 4. Send the Request
+                    try:
+                        # Short timeout keeps the video from freezing
+                        resp = requests.post(API_URL, json=payload, timeout=1) 
+                        print(f"✅ Database Update: {resp.status_code} - {resp.json()}")
+                        
+                        # Reset the timer ONLY if the request was successful
+                        last_send_time = current_time 
+                    except Exception as e:
+                        print(f"❌ Failed to send to database: {e}")
+
+        # Show the video feed (Will update smoothly now!)
         cv2.imshow("Smart Home CCTV Feed", results[0].plot())
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -40,16 +70,3 @@ def start_detection():
 
 if __name__ == "__main__":
     start_detection()
-
-
-# # Train the model using the 'coco8.yaml' dataset for 3 epochs
-# results = model.train(data="coco8.yaml", epochs=3)
-
-# # Evaluate the model's performance on the validation set
-# results = model.val()
-
-# # Perform object detection on an image using the model
-# results = model("https://ultralytics.com/images/bus.jpg")
-
-# # Export the model to ONNX format
-# success = model.export(format="onnx")
