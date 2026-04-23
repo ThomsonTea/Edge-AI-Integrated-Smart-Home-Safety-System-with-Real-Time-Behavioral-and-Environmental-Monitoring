@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-import models, database
+import models, backend.app.db.database as database
 from passlib.context import CryptContext
 
 app = FastAPI(title="Smart Home Security API")
