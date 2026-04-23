@@ -9,6 +9,8 @@ cd backend
 # Activate the virtual environment
 source venv/bin/activate
 
-# Run Uvicorn - pointing directly to the app
+# Run Uvicorn from the backend folder
 echo "🚀 Starting FastAPI from: $(pwd)"
-uvicorn main:app --reload
+
+# Use the module path (app.main) instead of entering the folder
+python -m uvicorn app.main:app --reload

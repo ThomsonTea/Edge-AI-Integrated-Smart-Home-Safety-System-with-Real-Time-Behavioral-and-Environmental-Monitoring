@@ -1,11 +1,11 @@
 from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime, Numeric, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.app.db.database import Base
+from app.db.database import Base
 
 class AIEvent(Base):
     __tablename__ = "ai_events"
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)                                                                      
     premise_id = Column(Integer, ForeignKey("premises.id", ondelete="CASCADE"))
     profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="SET NULL"))
     event_type = Column(String(100))

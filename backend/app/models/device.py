@@ -1,17 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, Text, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from backend.app.db.database import Base
-
-class NotificationRouting(Base):
-    __tablename__ = "notification_routing"
-    id = Column(Integer, primary_key=True, index=True)
-    profile_id = Column(Integer, ForeignKey("profiles.id", ondelete="CASCADE"))
-    alert_type = Column(String(100))
-    whatsapp_number = Column(String(20))
-    twilio_opt_in_status = Column(Boolean, default=False)
-
-    profile = relationship("Profile", back_populates="notifications")
+from app.db.database import Base
 
 class SystemConfig(Base):
     __tablename__ = "system_configs"
