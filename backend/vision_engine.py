@@ -7,7 +7,7 @@ import os
 # PERFORMANCE: Use UDP to reduce lag on the RTSP stream
 os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = 'rtsp_transport;udp'
 
-RTSP_URL = "rtsp://ThomsonTea:Tyj030903@192.168.0.44:554/stream1"
+RTSP_URL = "rtsp://ThomsonTea:Tyj030903@192.168.137.176:554/stream1"
 API_URL = "https://api.philous.me/ai_event"
 
 model = YOLO("models/yolo26n.pt")
