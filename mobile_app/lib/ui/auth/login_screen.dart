@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../data/services/auth_service.dart';
+import '../dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -14,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _fullNameController = TextEditingController();
   final _passwordController = TextEditingController();
   final storage = const FlutterSecureStorage();
+  
   bool _isLoading = false;
   bool _obscurePassword = true;
 
@@ -25,45 +27,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() async {
-  if (_formKey.currentState!.validate()) {
-    setState(() => _isLoading = true);
-    
-    try {
-      final authService = AuthService();
+    if (_formKey.currentState!.validate()) {
+      setState(() => _isLoading = true);
       
-      // 1. Get the response map from your service
-      final responseMap = await authService.login(
-        username: _fullNameController.text,
-        password: _passwordController.text,
-      );
-      
-      // 2. Extract the token from the response
-      // Replace 'access_token' with whatever key your FastAPI actually returns
-      final String token = responseMap['access_token']; 
+      try {
+        final authService = AuthService();
 
-      // 3. Save the token securely to the phone
-      await storage.write(key: 'jwt_token', value: token);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
+        // ✔ LOGIN CALL
+        final result = await authService.login(
+          username: _fullNameController.text,
+          password: _passwordController.text,
         );
-        // Now it is safe to navigate to the dashboard!
-        // Navigator.of(context).pushReplacementNamed('/home');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: $e')),
+
+        // ✔ STORE TOKEN
+        await storage.write(
+          key: 'jwt_token',
+          value: result.token,
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful!')),
+          );
+          
+          // ✔ NAVIGATE TO DASHBOARD
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Login failed: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
       }
     }
   }
-}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

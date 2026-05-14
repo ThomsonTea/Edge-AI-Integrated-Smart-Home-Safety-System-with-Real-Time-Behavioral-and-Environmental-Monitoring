@@ -12,6 +12,7 @@ greenlet==3.4.0
 # --- Security & Auth ---
 bcrypt==4.0.1
 passlib==1.7.4
+PyJWT==2.8.0
 
 # --- Computer Vision & AI (Smart Home Security) ---
 ultralytics==8.4.41

@@ -6,7 +6,7 @@ class Profile(Base):
     __tablename__ = "profiles"
     id = Column(Integer, primary_key=True, index=True)
     premise_id = Column(Integer, ForeignKey("premises.id", ondelete="SET NULL"))
-    full_name = Column(String(255), nullable=False)
+    username = Column(String(255), nullable=False)
     phone_number = Column(String(20), unique=True, index=True, nullable=True)
     group_type = Column(String(100))
     hash_password = Column(Text)
