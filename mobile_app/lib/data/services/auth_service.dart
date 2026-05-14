@@ -31,7 +31,7 @@ class AuthService {
         throw Exception('Invalid login response format');
       }
 
-      // 3. Validate token explicitly (THIS IS YOUR MAIN BUG SOURCE)
+      // 3. Validate token explicitly
       final token = decoded['token'];
 
       if (token == null || token.toString().isEmpty) {
