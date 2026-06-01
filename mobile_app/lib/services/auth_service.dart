@@ -1,10 +1,12 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../domain/models/login_result.dart';
+import '../domain/models/login_result.dart';
+import '../config/app_config.dart';
 
 class AuthService {
-  final String baseUrl = 'https://api.philous.me/api/dev';
+  final String baseUrl = AppConfig.apiBaseUrl;
 
+  // Login function to authenticate user and get token
   Future<LoginResult> login({
     required String username,
     required String password,
@@ -21,19 +23,15 @@ class AuthService {
 
       final decoded = jsonDecode(response.body);
       
-      // 1. Validate HTTP response
       if (response.statusCode != 200) {
         throw Exception('Login failed: ${decoded.toString()}');
       }
 
-      // 2. Validate structure
       if (decoded is! Map<String, dynamic>) {
         throw Exception('Invalid login response format');
       }
 
-      // 3. Validate token explicitly
       final token = decoded['token'];
-
       if (token == null || token.toString().isEmpty) {
         throw Exception('Login failed: token missing from server response');
       }

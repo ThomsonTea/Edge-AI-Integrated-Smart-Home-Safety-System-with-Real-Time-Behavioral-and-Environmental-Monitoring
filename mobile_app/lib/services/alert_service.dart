@@ -1,28 +1,26 @@
 import 'package:http/http.dart' as http;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
+import '../config/app_config.dart';
+import 'token_service.dart';
 
 class AlertService {
-  final String baseUrl = 'https://api.philous.me/api/dev';
-  final storage = const FlutterSecureStorage();
+  final String baseUrl = AppConfig.apiBaseUrl;
+  final _tokenService = TokenService();
   
   // Fetch recent AI detections
   Future<List<dynamic>> fetchAlerts() async {
     try {
-      // 1. Get the VIP pass (JWT) from storage
-      final token = await storage.read(key: 'jwt_token');
+      final token = await _tokenService.getToken();
 
-      if (token == null || token == 'null' || token.isEmpty) {
+      if (token == null || token.isEmpty || token == 'null') {
         throw Exception('Invalid auth token');
       }
 
-      // 2. Make the GET request to your FastAPI backend
-      // NOTE: Make sure you create a GET route for /ai_events in your Python code!
       final response = await http.get(
         Uri.parse('$baseUrl/ai_events'), 
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${token?.trim()}', 
+          'Authorization': 'Bearer ${token.trim()}', 
         },
       );
 
@@ -40,10 +38,5 @@ class AlertService {
     } catch (e) {
       throw Exception('Network error: $e');
     }
-  }
-
-  // Logout function to delete the token
-  Future<void> logout() async {
-    await storage.delete(key: 'jwt_token');
   }
 }

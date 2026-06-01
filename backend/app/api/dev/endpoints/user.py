@@ -3,12 +3,8 @@ from sqlalchemy.orm import Session
 from app.schemas.user import UserLogin, UserCreate
 from app.db import database
 from app.services.user_service import UserService
-import jwt
-import os
 
 router = APIRouter()
-
-
 
 @router.post("/login")
 def login(loginData: UserLogin, db: Session = Depends(database.get_db)):

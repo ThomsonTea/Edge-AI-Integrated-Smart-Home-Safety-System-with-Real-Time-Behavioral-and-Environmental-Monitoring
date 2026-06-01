@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ui/auth/login_screen.dart';
+import 'ui/screens/login_screen.dart';
 
 void main() {
   runApp(const SmartHomeApp());
