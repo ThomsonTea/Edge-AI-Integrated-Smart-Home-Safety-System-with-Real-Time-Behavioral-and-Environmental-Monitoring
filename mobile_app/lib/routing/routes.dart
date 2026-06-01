@@ -9,4 +9,6 @@ class AppRoutes {
   static const aiSettings = '/ai/settings';
   static const diagnostics = '/diagnostics';
   static const profile = '/profile';
+
+  static const userAccess = '/users';
 }

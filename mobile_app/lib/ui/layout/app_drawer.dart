@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../routing/routes.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -23,11 +24,18 @@ class AppDrawer extends StatelessWidget {
           ),
 
           // FAMILY
-          ListTile(
-            leading: const Icon(Icons.family_restroom),
-            title: const Text("Family / Users"),
-            onTap: () {},
-          ),
+         ListTile(
+          leading: const Icon(Icons.group),
+          title: const Text("User Access Management"),
+          onTap: () {
+          Navigator.pop(context);
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            AppRoutes.userAccess,
+            (route) => false,
+          );
+        },
+        ),
 
           const Divider(),
 
