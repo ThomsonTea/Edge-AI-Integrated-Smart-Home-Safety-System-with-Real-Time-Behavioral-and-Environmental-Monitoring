@@ -1,10 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
 from app.services.camera_service import CameraService
+from backend.app.middleware.jwt_auth import verify_token
 
 # Create the router
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(verify_token)]
+)
 
 # Initialize the service (this loads the YOLO model)
 camera_service = CameraService()
