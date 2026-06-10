@@ -3,7 +3,7 @@ import '../../viewmodels/login_viewmodel.dart';
 import '../layout/bottom_nav_shell.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -28,20 +28,18 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       final success = await _viewModel.login(
-        username: _fullNameController.text,
+        username: _fullNameController.text.trim(),
         password: _passwordController.text,
       );
 
       if (!mounted) return;
 
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login successful!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Login successful!')));
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (context) => const BottomNavShell(),
-          ),
+          MaterialPageRoute(builder: (context) => const BottomNavShell()),
           (route) => false,
         );
       } else {
@@ -89,7 +87,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                     ),
                     onPressed: () {
                       setState(() => _obscurePassword = !_obscurePassword);

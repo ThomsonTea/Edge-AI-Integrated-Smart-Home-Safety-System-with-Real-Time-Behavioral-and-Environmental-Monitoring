@@ -1,50 +1,70 @@
 import 'package:flutter/material.dart';
 
 class UserRegisterForm extends StatefulWidget {
-  final Future<void> Function(String name, String role) onSubmit;
+  final bool isSubmitting;
+  final Future<void> Function({
+    required String username,
+    required String email,
+    required String phoneNumber,
+    required String password,
+    required String role,
+  })
+  onSubmit;
 
   const UserRegisterForm({
     super.key,
+    required this.isSubmitting,
     required this.onSubmit,
   });
 
   @override
-  State<UserRegisterForm> createState() => _UserRegisterFormState();
+  State<UserRegisterForm> createState() => UserRegisterFormState();
 }
 
-class _UserRegisterFormState extends State<UserRegisterForm> {
+class UserRegisterFormState extends State<UserRegisterForm> {
+  final _formKey = GlobalKey<FormState>();
+
   final TextEditingController nameController = TextEditingController();
 
-  String selectedRole = 'Viewer';
-  bool isLoading = false;
+  final TextEditingController emailController = TextEditingController();
 
-  final List<String> roles = [
-    'Admin',
-    'Operator',
-    'Viewer',
-    'Guest',
-  ];
+  final TextEditingController phoneController = TextEditingController();
+
+  final TextEditingController passwordController = TextEditingController();
+
+  String selectedRole = 'Member';
+
+  final List<String> roles = ['Admin', 'Operator', 'Member', 'Guest'];
 
   @override
   void dispose() {
     nameController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    passwordController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
-    if (nameController.text.isEmpty) return;
-
-    setState(() => isLoading = true);
+    if (!_formKey.currentState!.validate()) return;
 
     await widget.onSubmit(
-      nameController.text,
-      selectedRole,
+      username: nameController.text.trim(),
+      email: emailController.text.trim(),
+      phoneNumber: phoneController.text.trim(),
+      password: passwordController.text.trim(),
+      role: selectedRole,
     );
+  }
+
+  void reset() {
+    nameController.clear();
+    emailController.clear();
+    phoneController.clear();
+    passwordController.clear();
 
     setState(() {
-      isLoading = false;
-      nameController.clear();
-      selectedRole = 'Viewer';
+      selectedRole = 'Member';
     });
   }
 
@@ -55,66 +75,134 @@ class _UserRegisterFormState extends State<UserRegisterForm> {
       margin: const EdgeInsets.all(12),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Register New User",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Register New User',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Full Name',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon: Icon(Icons.person),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a name';
+                  }
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            DropdownButtonFormField<String>(
-              value: selectedRole,
-              items: roles.map((role) {
-                return DropdownMenuItem(
-                  value: role,
-                  child: Text(role),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedRole = value!;
-                });
-              },
-              decoration: const InputDecoration(
-                labelText: 'Role',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.security),
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Email Address',
+                  prefixIcon: Icon(Icons.email),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter an email';
+                  }
+
+                  if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value)) {
+                    return 'Invalid email address';
+                  }
+
+                  return null;
+                },
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isLoading ? null : _submit,
-                child: isLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text("Create User"),
+              TextFormField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a phone number';
+                  }
+                  return null;
+                },
               ),
-            ),
-          ],
+
+              const SizedBox(height: 12),
+
+              TextFormField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a password';
+                  }
+                  if (value.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 12),
+
+              DropdownButtonFormField<String>(
+                initialValue: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: 'Role',
+                  prefixIcon: Icon(Icons.security),
+                  border: OutlineInputBorder(),
+                ),
+                items: roles.map((role) {
+                  return DropdownMenuItem(value: role, child: Text(role));
+                }).toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  setState(() {
+                    selectedRole = value;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: widget.isSubmitting ? null : _submit,
+                  icon: const Icon(Icons.person_add),
+                  label: widget.isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Register User'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

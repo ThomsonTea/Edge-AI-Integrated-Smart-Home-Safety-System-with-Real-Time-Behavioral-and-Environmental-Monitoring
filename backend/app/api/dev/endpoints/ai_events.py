@@ -1,189 +1,167 @@
-"""Protected AI Events Endpoint - Requires JWT Authentication"""
+"""Protected AI event history endpoints."""
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from datetime import datetime
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from app.db.database import get_db
 from app.middleware import get_current_user
 from app.models.event import AIEvent
-from pydantic import BaseModel
-from typing import List
-from datetime import datetime
+from app.models.profile import Profile
 
 router = APIRouter()
 
 
 class AIEventResponse(BaseModel):
-    """Schema for AI Event response"""
     id: int
+    type: str
     event_type: str
-    confidence_score: float
-    image_path: str
+    confidence_score: Optional[float] = None
+    image_path: Optional[str] = None
     is_acknowledged: bool
-    timestamp: datetime
-    premise_id: int
-    
-    class Config:
-        from_attributes = True
+    timestamp: Optional[datetime] = None
+    premise_id: Optional[int] = None
+    profile_id: Optional[int] = None
 
 
-@router.get("/", response_model=List[AIEventResponse])
-def get_ai_events(
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    limit: int = 50,
-):
-    """
-    Get AI detection events for the current user's premise.
-    
-    🔒 **JWT Required**: Must include Bearer token in Authorization header
-    
-    Example:
-        GET /api/dev/ai_events
-        Authorization: Bearer YOUR_JWT_TOKEN
-    
-    Returns:
-        List of AI events ordered by most recent first
-        
-    Raises:
-        401: If token is missing, invalid, or expired
-        404: If user's premise not found
-    """
+def _get_current_profile(
+    current_user: dict,
+    db: Session,
+) -> Profile:
     user_id = current_user.get("user_id")
-    
-    # Get user's profile to find their premise
-    from app.models.profile import Profile
     user = db.query(Profile).filter(Profile.id == user_id).first()
-    
+
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User profile not found"
+            detail="User profile not found",
         )
-    
+
+    return user
+
+
+def _event_to_response(event: AIEvent) -> dict:
+    event_type = event.event_type or "Unknown Alert"
+
+    return {
+        "id": event.id,
+        "type": event_type,
+        "event_type": event_type,
+        "confidence_score": (
+            float(event.confidence_score)
+            if event.confidence_score is not None
+            else None
+        ),
+        "image_path": event.image_path,
+        "is_acknowledged": bool(event.is_acknowledged),
+        "timestamp": event.timestamp,
+        "premise_id": event.premise_id,
+        "profile_id": event.profile_id,
+    }
+
+
+def _ensure_event_access(user: Profile, event: AIEvent, action: str) -> None:
+    if user.premise_id is None or event.premise_id != user.premise_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Not authorized to {action} this event",
+        )
+
+
+@router.get("", response_model=List[AIEventResponse])
+@router.get("/", response_model=List[AIEventResponse], include_in_schema=False)
+def get_ai_events(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=200),
+    event_type: Optional[str] = Query(default=None),
+    start_date: Optional[datetime] = Query(default=None),
+    end_date: Optional[datetime] = Query(default=None),
+    is_acknowledged: Optional[bool] = Query(default=None),
+):
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
     if not user.premise_id:
-        return []  # User has no premise assigned
-    
-    # Get events for user's premise, ordered by most recent first
-    events = db.query(AIEvent)\
-        .filter(AIEvent.premise_id == user.premise_id)\
-        .order_by(AIEvent.timestamp.desc())\
-        .limit(limit)\
-        .all()
-    
-    return events
+        return []
+
+    if start_date is not None and end_date is not None and start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date must be before or equal to end_date",
+        )
+
+    query = db.query(AIEvent).filter(AIEvent.premise_id == user.premise_id)
+
+    if event_type is not None and event_type.strip():
+        query = query.filter(AIEvent.event_type == event_type.strip())
+
+    if start_date is not None:
+        query = query.filter(AIEvent.timestamp >= start_date)
+
+    if end_date is not None:
+        query = query.filter(AIEvent.timestamp <= end_date)
+
+    if is_acknowledged is not None:
+        query = query.filter(AIEvent.is_acknowledged == is_acknowledged)
+
+    events = query.order_by(AIEvent.timestamp.desc()).limit(limit).all()
+
+    return [_event_to_response(event) for event in events]
 
 
 @router.get("/{event_id}", response_model=AIEventResponse)
 def get_ai_event(
-    event_id: int,
+    event_id: int = Path(..., ge=1),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Get a specific AI event by ID.
-    
-    🔒 **JWT Required**
-    
-    Only allows access to events in user's premise.
-    
-    Args:
-        event_id: ID of the event to retrieve
-        
-    Returns:
-        AI event details
-        
-    Raises:
-        401: If token is invalid
-        403: If event belongs to different user's premise
-        404: If event not found
-    """
-    user_id = current_user.get("user_id")
-    
-    # Get user's profile
-    from app.models.profile import Profile
-    user = db.query(Profile).filter(Profile.id == user_id).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Get event
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
     event = db.query(AIEvent).filter(AIEvent.id == event_id).first()
-    
+
     if not event:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
+            detail="Event not found",
         )
-    
-    # Verify event belongs to user's premise
-    if event.premise_id != user.premise_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this event"
-        )
-    
-    return event
+
+    _ensure_event_access(user=user, event=event, action="access")
+
+    return _event_to_response(event)
 
 
-@router.put("/{event_id}/acknowledge")
+@router.put("/{event_id}/acknowledge", response_model=AIEventResponse)
 def acknowledge_event(
-    event_id: int,
+    event_id: int = Path(..., ge=1),
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """
-    Mark an AI event as acknowledged by the user.
-    
-    🔒 **JWT Required**
-    
-    Args:
-        event_id: ID of the event to acknowledge
-        
-    Returns:
-        Updated event
-        
-    Raises:
-        401: If token is invalid
-        403: If event belongs to different user's premise
-        404: If event not found
-    """
-    user_id = current_user.get("user_id")
-    
-    # Get user's profile
-    from app.models.profile import Profile
-    user = db.query(Profile).filter(Profile.id == user_id).first()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
-    # Get event
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
     event = db.query(AIEvent).filter(AIEvent.id == event_id).first()
-    
+
     if not event:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Event not found"
+            detail="Event not found",
         )
-    
-    # Verify authorization
-    if event.premise_id != user.premise_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to acknowledge this event"
-        )
-    
-    # Update event
+
+    _ensure_event_access(user=user, event=event, action="acknowledge")
+
     event.is_acknowledged = True
     db.commit()
     db.refresh(event)
-    
-    return {
-        "message": "Event acknowledged",
-        "event": event
-    }
+
+    return _event_to_response(event)

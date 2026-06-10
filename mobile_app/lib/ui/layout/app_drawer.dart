@@ -10,32 +10,28 @@ class AppDrawer extends StatelessWidget {
       child: ListView(
         children: [
           const DrawerHeader(
-            child: Text(
-              "System Control Panel",
-              style: TextStyle(fontSize: 18),
-            ),
+            child: Text("System Control Panel", style: TextStyle(fontSize: 18)),
           ),
 
           // CORE SECURITY
           ListTile(
             leading: const Icon(Icons.history),
             title: const Text("Alert History"),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.alertHistory);
+            },
           ),
 
           // FAMILY
-         ListTile(
-          leading: const Icon(Icons.group),
-          title: const Text("User Access Management"),
-          onTap: () {
-          Navigator.pop(context);
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            AppRoutes.userAccess,
-            (route) => false,
-          );
-        },
-        ),
+          ListTile(
+            leading: const Icon(Icons.group),
+            title: const Text("User Access Management"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.userAccess);
+            },
+          ),
 
           const Divider(),
 

@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
-import '../services/alert_service.dart';
+import '../domain/models/ai_event.dart';
+import '../services/event_service.dart';
 import '../services/token_service.dart';
 
 class DashboardViewModel extends ChangeNotifier {
-  final AlertService _alertService = AlertService();
+  final EventService _eventService = EventService();
   final TokenService _tokenService = TokenService();
 
-  List<dynamic> _alerts = [];
+  List<AiEvent> _alerts = [];
   bool _isLoading = false;
   String? _errorMessage;
   String? _jwtToken;
 
-  List<dynamic> get alerts => _alerts;
+  List<AiEvent> get alerts => _alerts;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get jwtToken => _jwtToken;
@@ -28,7 +29,7 @@ class DashboardViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _alerts = await _alertService.fetchAlerts();
+      _alerts = await _eventService.fetchEvents();
       _isLoading = false;
       notifyListeners();
     } catch (e) {

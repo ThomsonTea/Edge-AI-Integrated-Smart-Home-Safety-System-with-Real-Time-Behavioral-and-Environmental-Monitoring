@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi import HTTPException, status
-from requests import Session
+from sqlalchemy.orm import Session
 
-from backend.app.db import database
-from backend.app.schemas.user import UserLogin
-from backend.app.services.user_service import UserService
+
+from app.db import database
+from app.schemas.user import UserLogin
+from app.services.user_service import UserService
 
 
 router = APIRouter()

@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 
 class UserLogin(BaseModel):
@@ -9,6 +10,7 @@ class UserCreate(BaseModel):
     password: str
     email: str
     phone_number: str
+    group_type: Optional[str] = None
 
 class AIEventCreate(BaseModel):
     event_type: str

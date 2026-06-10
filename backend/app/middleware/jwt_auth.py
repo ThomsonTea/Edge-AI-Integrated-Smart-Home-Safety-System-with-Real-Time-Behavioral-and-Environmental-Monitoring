@@ -12,9 +12,7 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 
 security = HTTPBearer()
 
-def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-
+def _decode_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
@@ -31,3 +29,9 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
 
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    return _decode_token(credentials.credentials)
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    return get_current_user(credentials)

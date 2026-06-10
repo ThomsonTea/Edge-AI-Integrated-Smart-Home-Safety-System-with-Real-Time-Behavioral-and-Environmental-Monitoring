@@ -51,8 +51,8 @@ backend/ml_models/*.weights
 
 # Local Storage (Your intruder images)
 # Do not upload your actual security photos to Git!
-backend/static/alerts/
-!backend/static/alerts/.gitkeep
+backend/storage/alerts/*
+!backend/storage/alerts/.gitkeep
 
 # ------------------------------------------
 # 4. mobile_app (Flutter / Dart)
@@ -87,3 +87,10 @@ mobile_app/ios/Flutter/flutter_export_environment.sh
 mobile_app/**/*.map.json
 mobile_app/**/*.symbols
 mobile_app/**/doc/api/
+
+# Private planning docs
+DATABASE_CONTEXT.md
+TECHNICAL_AUDIT.md
+MODULE_ROADMAP.md
+ROADMAP.md
+TODO.md

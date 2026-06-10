@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/dashboard_screen.dart';
+import '../screens/event_history_screen.dart';
 import 'app_drawer.dart';
 
 class BottomNavShell extends StatefulWidget {
@@ -15,8 +16,17 @@ class _BottomNavShellState extends State<BottomNavShell> {
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    // Placeholder for Screens
-    
+    EventHistoryScreen(),
+    _ComingSoonScreen(
+      icon: Icons.videocam,
+      title: 'Camera Feed',
+      description: 'The dedicated camera feed page will appear here.',
+    ),
+    _ComingSoonScreen(
+      icon: Icons.person,
+      title: 'Profile',
+      description: 'Profile settings will appear here.',
+    ),
   ];
 
   void _onTap(int value) {
@@ -28,9 +38,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
     return Scaffold(
       drawer: const AppDrawer(),
 
-      appBar: AppBar(
-        title: const Text("Smart Security System"),
-      ),
+      appBar: AppBar(title: const Text("Smart Security System")),
 
       body: _screens[_index],
 
@@ -47,15 +55,48 @@ class _BottomNavShellState extends State<BottomNavShell> {
             icon: Icon(Icons.notifications),
             label: "Alerts",
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.videocam),
-            label: "Camera",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.videocam), label: "Camera"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
+      ),
+    );
+  }
+}
+
+class _ComingSoonScreen extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String description;
+
+  const _ComingSoonScreen({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+
+import '../../routing/routes.dart';
 import '../../viewmodels/user_access_viewmodel.dart';
+import '../widgets/user_list.dart';
 import '../widgets/user_register_form.dart';
 
 class UserAccessScreen extends StatefulWidget {
@@ -10,28 +13,37 @@ class UserAccessScreen extends StatefulWidget {
 }
 
 class _UserAccessScreenState extends State<UserAccessScreen> {
-  final vm = UserAccessViewModel();
-
-  final TextEditingController nameController = TextEditingController();
-  String selectedRole = 'Viewer';
+  final UserAccessViewModel vm = UserAccessViewModel();
 
   @override
   void initState() {
     super.initState();
+    vm.addListener(_showViewModelMessage);
     vm.loadUsers();
   }
 
   @override
   void dispose() {
-    nameController.dispose();
+    vm.removeListener(_showViewModelMessage);
+    vm.dispose();
     super.dispose();
   }
 
-  void _addUser() async {
-    if (nameController.text.isEmpty) return;
+  void _showViewModelMessage() {
+    final message = vm.errorMessage ?? vm.successMessage;
 
-    await vm.registerUser(nameController.text, selectedRole);
-    nameController.clear();
+    if (message == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(message)));
+      vm.clearMessages();
+    });
   }
 
   @override
@@ -39,46 +51,82 @@ class _UserAccessScreenState extends State<UserAccessScreen> {
     return AnimatedBuilder(
       animation: vm,
       builder: (context, _) {
+        final canPop = ModalRoute.of(context)?.canPop ?? false;
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('User Access Management'),
+            leading: canPop
+                ? const BackButton()
+                : IconButton(
+                    icon: const Icon(Icons.home),
+                    tooltip: 'Back to dashboard',
+                    onPressed: () {
+                      Navigator.of(
+                        context,
+                      ).pushReplacementNamed(AppRoutes.home);
+                    },
+                  ),
           ),
-
-          body: vm.isLoading
+          body: vm.isLoading && vm.users.isEmpty
               ? const Center(child: CircularProgressIndicator())
               : Column(
                   children: [
-                    UserRegisterForm(
-                      onSubmit: (name, role) async {
-                      await vm.registerUser(name, role);
-                      },
-                    ),
-
+                    _RegisterFormHost(viewModel: vm),
                     const Divider(),
-
-                    // USER LIST
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: vm.users.length,
-                        itemBuilder: (context, index) {
-                          final user = vm.users[index];
-
-                          return ListTile(
-                            leading: const Icon(Icons.person),
-                            title: Text(user.name),
-                            subtitle: Text(user.role),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () => vm.deleteUser(user.id),
-                            ),
-                          );
-                        },
+                      child: UserList(
+                        users: vm.users,
+                        isDeleting: vm.isDeleting,
+                        onDelete: vm.deleteUser,
                       ),
                     ),
                   ],
                 ),
         );
       },
+    );
+  }
+}
+
+class _RegisterFormHost extends StatefulWidget {
+  final UserAccessViewModel viewModel;
+
+  const _RegisterFormHost({required this.viewModel});
+
+  @override
+  State<_RegisterFormHost> createState() => _RegisterFormHostState();
+}
+
+class _RegisterFormHostState extends State<_RegisterFormHost> {
+  final GlobalKey<UserRegisterFormState> _formKey =
+      GlobalKey<UserRegisterFormState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return UserRegisterForm(
+      key: _formKey,
+      isSubmitting: widget.viewModel.isSubmitting,
+      onSubmit:
+          ({
+            required String username,
+            required String email,
+            required String phoneNumber,
+            required String password,
+            required String role,
+          }) async {
+            final registered = await widget.viewModel.registerUser(
+              username: username,
+              email: email,
+              phoneNumber: phoneNumber,
+              password: password,
+              role: role,
+            );
+
+            if (registered) {
+              _formKey.currentState?.reset();
+            }
+          },
     );
   }
 }

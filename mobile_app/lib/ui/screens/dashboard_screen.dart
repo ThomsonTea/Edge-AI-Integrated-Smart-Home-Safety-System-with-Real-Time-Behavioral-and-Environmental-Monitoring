@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../viewmodels/dashboard_viewmodel.dart';
+import '../widgets/ai_event_list.dart';
 import '../widgets/camera_widget.dart';
 import 'login_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  const DashboardScreen({super.key});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -53,10 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _viewModel.loadAlerts,
           ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
-          ),
+          IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
       body: SingleChildScrollView(
@@ -114,38 +112,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 12),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _viewModel.alerts.length,
-            itemBuilder: (context, index) {
-              return _buildAlertItem(_viewModel.alerts[index]);
-            },
-          ),
+          AiEventList(events: _viewModel.alerts),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAlertItem(dynamic alert) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              alert['type']?.toString() ?? 'Unknown Alert',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              alert['timestamp']?.toString() ?? 'No timestamp',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
       ),
     );
   }
