@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is used to capture a face photo for registration.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is used to choose a face photo for registration.</string>
 </dict>
 </plist>

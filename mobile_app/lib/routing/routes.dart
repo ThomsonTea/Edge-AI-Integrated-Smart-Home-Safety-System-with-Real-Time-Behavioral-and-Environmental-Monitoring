@@ -12,4 +12,5 @@ class AppRoutes {
   static const profile = '/profile';
 
   static const userAccess = '/users';
+  static const faceRegistration = '/faces/register';
 }

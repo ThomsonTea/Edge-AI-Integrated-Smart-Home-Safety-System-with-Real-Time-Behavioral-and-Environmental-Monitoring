@@ -48,6 +48,7 @@ backend/.env
 backend/ml_models/*.pt
 backend/ml_models/*.onnx
 backend/ml_models/*.weights
+backend/models/insightface/
 
 # Local Storage (Your intruder images)
 # Do not upload your actual security photos to Git!

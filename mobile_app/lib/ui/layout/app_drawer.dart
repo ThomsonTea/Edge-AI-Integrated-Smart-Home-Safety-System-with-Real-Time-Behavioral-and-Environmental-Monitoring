@@ -33,6 +33,15 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
+          ListTile(
+            leading: const Icon(Icons.face_retouching_natural),
+            title: const Text("Face Registration"),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.faceRegistration);
+            },
+          ),
+
           const Divider(),
 
           // SYSTEM MANAGEMENT
