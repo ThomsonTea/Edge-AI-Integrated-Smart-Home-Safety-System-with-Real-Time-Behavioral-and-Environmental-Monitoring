@@ -15,12 +15,13 @@ class EventHistoryScreen extends StatefulWidget {
 }
 
 class _EventHistoryScreenState extends State<EventHistoryScreen> {
-  static const List<String> _eventTypeOptions = [
-    'Person Detected',
-    'Known Person Detected',
-    'Unknown Person Detected',
-    'Sensor Alert',
-    'Fall Detected',
+  static const List<_EventTypeFilterOption> _eventTypeOptions = [
+    _EventTypeFilterOption(value: 'person_detected', label: 'Person Detected'),
+    _EventTypeFilterOption(value: 'known_person', label: 'Known Person'),
+    _EventTypeFilterOption(value: 'unknown_person', label: 'Unknown Person'),
+    _EventTypeFilterOption(value: 'sensor_alert', label: 'Sensor Alert'),
+    _EventTypeFilterOption(value: 'fall_detected', label: 'Fall Detected'),
+    _EventTypeFilterOption(value: 'camera_offline', label: 'Camera Offline'),
   ];
 
   final EventHistoryViewModel _viewModel = EventHistoryViewModel();
@@ -182,7 +183,7 @@ class _EventHistoryScreenState extends State<EventHistoryScreen> {
 }
 
 class _EventFilterPanel extends StatelessWidget {
-  final List<String> eventTypeOptions;
+  final List<_EventTypeFilterOption> eventTypeOptions;
   final String? selectedEventType;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -221,9 +222,9 @@ class _EventFilterPanel extends StatelessWidget {
               child: Text('All event types'),
             ),
             ...eventTypeOptions.map(
-              (eventType) => DropdownMenuItem<String?>(
-                value: eventType,
-                child: Text(eventType),
+              (option) => DropdownMenuItem<String?>(
+                value: option.value,
+                child: Text(option.label),
               ),
             ),
           ],
@@ -290,6 +291,13 @@ class _EventFilterPanel extends StatelessWidget {
     final day = local.day.toString().padLeft(2, '0');
     return '${local.year}-$month-$day';
   }
+}
+
+class _EventTypeFilterOption {
+  final String value;
+  final String label;
+
+  const _EventTypeFilterOption({required this.value, required this.label});
 }
 
 class _EventErrorState extends StatelessWidget {

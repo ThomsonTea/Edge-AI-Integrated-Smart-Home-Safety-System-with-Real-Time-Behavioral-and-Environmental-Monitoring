@@ -64,7 +64,26 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(event.eventType, style: Theme.of(context).textTheme.titleLarge),
+        Row(
+          children: [
+            Icon(
+              _eventIcon(event.eventType),
+              color: _eventIconColor(event.eventType, context),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                event.displayType,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          event.recognitionSummary,
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
         const SizedBox(height: 12),
         _EventSnapshot(imagePath: event.imagePath),
         const SizedBox(height: 16),
@@ -75,27 +94,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           const SizedBox(height: 12),
         ],
+        _DetailRow(label: 'Recognition', value: event.recognitionSummary),
+        if (!event.isUnknownPerson &&
+            (event.profileName != null || event.profileId != null))
+          _DetailRow(
+            label: event.isKnownPerson ? 'Known Person' : 'Profile',
+            value: event.profileDisplay,
+          ),
+        if (event.isUnknownPerson)
+          const _DetailRow(
+            label: 'Result',
+            value: 'Unregistered person detected',
+          ),
+        _DetailRow(label: 'Premise', value: event.premiseDisplay),
         _DetailRow(
           label: 'Timestamp',
           value: _formatTimestamp(event.timestamp),
         ),
-        _DetailRow(
-          label: 'Confidence',
-          value: event.confidenceScore == null
-              ? 'Unavailable'
-              : '${event.confidenceScore!.toStringAsFixed(2)}%',
-        ),
+        _DetailRow(label: 'Confidence', value: event.confidenceDisplay),
         _DetailRow(
           label: 'Status',
           value: event.isAcknowledged ? 'Acknowledged' : 'New',
-        ),
-        _DetailRow(
-          label: 'Premise ID',
-          value: _formatNullableId(event.premiseId),
-        ),
-        _DetailRow(
-          label: 'Profile ID',
-          value: _formatNullableId(event.profileId),
         ),
         const SizedBox(height: 20),
         if (!event.isAcknowledged)
@@ -129,8 +148,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return timestamp.toLocal().toString();
   }
 
-  String _formatNullableId(int? value) {
-    return value?.toString() ?? 'Not assigned';
+  IconData _eventIcon(String eventType) {
+    return switch (eventType) {
+      'known_person' => Icons.person,
+      'unknown_person' => Icons.warning_amber,
+      'person_detected' => Icons.person_search,
+      'sensor_alert' => Icons.sensors,
+      'fall_detected' => Icons.emergency,
+      'camera_offline' => Icons.videocam_off,
+      _ => Icons.notifications,
+    };
+  }
+
+  Color _eventIconColor(String eventType, BuildContext context) {
+    return switch (eventType) {
+      'known_person' => Colors.green,
+      'unknown_person' => Colors.orange,
+      'sensor_alert' => Colors.red,
+      'fall_detected' => Colors.red,
+      'camera_offline' => Colors.grey,
+      _ => Theme.of(context).colorScheme.primary,
+    };
   }
 }
 

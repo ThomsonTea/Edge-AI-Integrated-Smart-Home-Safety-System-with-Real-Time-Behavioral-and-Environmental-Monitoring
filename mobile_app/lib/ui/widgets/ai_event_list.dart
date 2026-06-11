@@ -40,27 +40,27 @@ class AiEventListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final confidence = event.confidenceScore == null
-        ? 'Confidence unavailable'
-        : '${event.confidenceScore!.toStringAsFixed(2)}% confidence';
-
     return Card(
       margin: EdgeInsets.zero,
       child: ListTile(
         onTap: onTap,
         leading: Icon(
-          event.isAcknowledged ? Icons.check_circle : Icons.warning,
-          color: event.isAcknowledged ? Colors.green : Colors.orange,
+          _eventIcon(event.eventType),
+          color: event.isAcknowledged
+              ? Colors.green
+              : _eventIconColor(event.eventType, context),
         ),
-        title: Text(event.eventType),
+        title: Text(event.displayType),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
+            Text(event.recognitionSummary),
+            Text('Premise: ${event.premiseDisplay}'),
             Text(_formatTimestamp(event.timestamp)),
-            Text(confidence),
+            Text(event.confidenceDisplay),
             if (event.imagePath != null && event.imagePath!.isNotEmpty)
-              Text('Image: ${event.imagePath}'),
+              const Text('Snapshot available'),
           ],
         ),
         trailing: event.isAcknowledged ? const Text('Done') : const Text('New'),
@@ -74,5 +74,28 @@ class AiEventListItem extends StatelessWidget {
     final local = timestamp.toLocal();
     final value = local.toString();
     return value.length > 16 ? value.substring(0, 16) : value;
+  }
+
+  IconData _eventIcon(String eventType) {
+    return switch (eventType) {
+      'known_person' => Icons.person,
+      'unknown_person' => Icons.warning_amber,
+      'person_detected' => Icons.person_search,
+      'sensor_alert' => Icons.sensors,
+      'fall_detected' => Icons.emergency,
+      'camera_offline' => Icons.videocam_off,
+      _ => Icons.notifications,
+    };
+  }
+
+  Color _eventIconColor(String eventType, BuildContext context) {
+    return switch (eventType) {
+      'known_person' => Colors.green,
+      'unknown_person' => Colors.orange,
+      'sensor_alert' => Colors.red,
+      'fall_detected' => Colors.red,
+      'camera_offline' => Colors.grey,
+      _ => Theme.of(context).colorScheme.primary,
+    };
   }
 }

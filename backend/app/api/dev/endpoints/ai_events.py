@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.database import get_db
 from app.middleware import get_current_user
@@ -24,7 +24,9 @@ class AIEventResponse(BaseModel):
     is_acknowledged: bool
     timestamp: Optional[datetime] = None
     premise_id: Optional[int] = None
+    premise_name: Optional[str] = None
     profile_id: Optional[int] = None
+    profile_name: Optional[str] = None
 
 
 def _get_current_profile(
@@ -45,6 +47,8 @@ def _get_current_profile(
 
 def _event_to_response(event: AIEvent) -> dict:
     event_type = event.event_type or "Unknown Alert"
+    premise_name = event.premise.name if event.premise is not None else None
+    profile_name = event.profile.username if event.profile is not None else None
 
     return {
         "id": event.id,
@@ -59,7 +63,9 @@ def _event_to_response(event: AIEvent) -> dict:
         "is_acknowledged": bool(event.is_acknowledged),
         "timestamp": event.timestamp,
         "premise_id": event.premise_id,
+        "premise_name": premise_name,
         "profile_id": event.profile_id,
+        "profile_name": profile_name,
     }
 
 
@@ -96,7 +102,11 @@ def get_ai_events(
             detail="start_date must be before or equal to end_date",
         )
 
-    query = db.query(AIEvent).filter(AIEvent.premise_id == user.premise_id)
+    query = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.premise_id == user.premise_id)
+    )
 
     if event_type is not None and event_type.strip():
         query = query.filter(AIEvent.event_type == event_type.strip())
@@ -126,7 +136,12 @@ def get_ai_event(
         db=db,
     )
 
-    event = db.query(AIEvent).filter(AIEvent.id == event_id).first()
+    event = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.id == event_id)
+        .first()
+    )
 
     if not event:
         raise HTTPException(
@@ -150,7 +165,12 @@ def acknowledge_event(
         db=db,
     )
 
-    event = db.query(AIEvent).filter(AIEvent.id == event_id).first()
+    event = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.id == event_id)
+        .first()
+    )
 
     if not event:
         raise HTTPException(

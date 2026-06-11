@@ -10,6 +10,7 @@ from ultralytics import YOLO
 from app.db.database import SessionLocal
 from app.models.event import AIEvent
 from app.models.profile import Premise
+from app.services.face_service import FaceService
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
@@ -130,7 +131,7 @@ class CameraService:
 
                 if not self.person_present:
                     print(
-                        "🚨 [NEW EVENT] Unknown person detected with "
+                        "🚨 [NEW EVENT] Person detected with "
                         f"{conf:.2f} confidence"
                     )
 
@@ -161,7 +162,7 @@ class CameraService:
                             self.active_unknown_person_image_path = updated_image_path
                             self.best_unknown_person_snapshot_score = quality_score
                             print(
-                                "✅ Unknown person snapshot improved "
+                                "✅ Person snapshot improved "
                                 f"(score={quality_score:.3f})"
                             )
 
@@ -247,8 +248,12 @@ class CameraService:
 
             event = AIEvent(
                 premise_id=premise_id,
-                event_type="unknown_person",
-                confidence_score=confidence_score,
+                **self._classify_detected_person(
+                    db=db,
+                    premise_id=premise_id,
+                    frame=frame,
+                    yolo_confidence=confidence_score,
+                ),
                 image_path=image_path,
                 is_acknowledged=False,
             )
@@ -294,8 +299,17 @@ class CameraService:
             if image_path is None:
                 return None
 
+            classification = self._classify_detected_person(
+                db=db,
+                premise_id=event.premise_id,
+                frame=frame,
+                yolo_confidence=confidence_score,
+            )
+
+            event.event_type = classification["event_type"]
+            event.profile_id = classification["profile_id"]
             event.image_path = image_path
-            event.confidence_score = confidence_score
+            event.confidence_score = classification["confidence_score"]
             db.commit()
 
             self._delete_snapshot_file(previous_image_path)
@@ -313,6 +327,68 @@ class CameraService:
     def _should_evaluate_snapshot(self, current_time: float) -> bool:
         elapsed = current_time - self.last_snapshot_evaluation_time
         return elapsed >= self.snapshot_evaluation_interval_seconds
+
+    def _classify_detected_person(
+        self,
+        db,
+        premise_id: int,
+        frame,
+        yolo_confidence: float,
+    ):
+        classification = {
+            "event_type": "unknown_person",
+            "profile_id": None,
+            "confidence_score": self._to_confidence_percentage(yolo_confidence),
+        }
+
+        try:
+            recognition = FaceService(db).recognize_face(
+                image=frame,
+                premise_id=premise_id,
+                db=db,
+            )
+
+            recognition_confidence = float(recognition.get("confidence") or 0.0)
+
+            if recognition.get("matched") and recognition.get("profile_id") is not None:
+                classification.update(
+                    {
+                        "event_type": "known_person",
+                        "profile_id": recognition["profile_id"],
+                        "confidence_score": self._to_confidence_percentage(
+                            recognition_confidence
+                        ),
+                    }
+                )
+                print(
+                    "✅ Known person detected: "
+                    f"profile_id={recognition['profile_id']} "
+                    f"confidence={recognition_confidence:.3f}"
+                )
+            else:
+                classification["confidence_score"] = (
+                    self._to_confidence_percentage(recognition_confidence)
+                    if recognition_confidence > 0
+                    else self._to_confidence_percentage(yolo_confidence)
+                )
+                print(
+                    "🚨 Unknown person detected "
+                    f"(face_confidence={recognition_confidence:.3f}, "
+                    f"yolo_confidence={yolo_confidence:.3f})"
+                )
+
+        except Exception as e:
+            print(f"⚠️ Face recognition failed. Falling back to unknown_person: {e}")
+
+        return classification
+
+    def _to_confidence_percentage(self, value: float) -> float:
+        confidence = max(float(value or 0), 0.0)
+
+        if confidence <= 1:
+            confidence *= 100
+
+        return min(confidence, 100.0)
 
     def _best_person_detection(self, result, frame):
         frame_height, frame_width = frame.shape[:2]

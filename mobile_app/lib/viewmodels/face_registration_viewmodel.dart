@@ -4,20 +4,25 @@ import 'package:flutter/material.dart';
 
 import '../domain/models/user.dart';
 import '../services/face_service.dart';
+import '../services/token_service.dart';
 import '../services/user_service.dart';
 
 class FaceRegistrationViewModel extends ChangeNotifier {
   final FaceService _faceService;
+  final TokenService _tokenService;
   final UserService _userService;
 
   FaceRegistrationViewModel({
     FaceService? faceService,
+    TokenService? tokenService,
     UserService? userService,
   }) : _faceService = faceService ?? FaceService(),
+       _tokenService = tokenService ?? TokenService(),
        _userService = userService ?? UserService();
 
   List<User> _users = const [];
   User? _selectedUser;
+  String? _currentUserId;
   File? _selectedImage;
   bool _isLoading = false;
   bool _isLoadingUsers = false;
@@ -26,6 +31,7 @@ class FaceRegistrationViewModel extends ChangeNotifier {
 
   List<User> get users => _users;
   User? get selectedUser => _selectedUser;
+  String? get currentUserId => _currentUserId;
   File? get selectedImage => _selectedImage;
   bool get isLoading => _isLoading;
   bool get isLoadingUsers => _isLoadingUsers;
@@ -39,6 +45,7 @@ class FaceRegistrationViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _currentUserId = await _tokenService.getCurrentUserId();
       _users = await _userService.fetchUsers();
 
       final selectedUser = _selectedUser;

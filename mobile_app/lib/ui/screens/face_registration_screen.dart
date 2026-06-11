@@ -76,6 +76,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
         _UserSelector(
           users: _viewModel.users,
           selectedUser: _viewModel.selectedUser,
+          currentUserId: _viewModel.currentUserId,
           isLoading: _viewModel.isLoadingUsers,
           onChanged: (user) {
             if (user == null) return;
@@ -115,6 +116,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
 class _UserSelector extends StatelessWidget {
   final List<User> users;
   final User? selectedUser;
+  final String? currentUserId;
   final bool isLoading;
   final ValueChanged<User?> onChanged;
   final VoidCallback onRefresh;
@@ -122,6 +124,7 @@ class _UserSelector extends StatelessWidget {
   const _UserSelector({
     required this.users,
     required this.selectedUser,
+    required this.currentUserId,
     required this.isLoading,
     required this.onChanged,
     required this.onRefresh,
@@ -165,7 +168,7 @@ class _UserSelector extends StatelessWidget {
                 (user) => DropdownMenuItem<User>(
                   value: user,
                   child: Text(
-                    _userLabel(user),
+                    _userLabel(user, currentUserId),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -181,9 +184,10 @@ class _UserSelector extends StatelessWidget {
     );
   }
 
-  String _userLabel(User user) {
+  String _userLabel(User user, String? currentUserId) {
     final role = user.role.isEmpty ? 'No role' : user.role;
-    return '${user.name} ($role)';
+    final youLabel = user.id == currentUserId ? ' (You)' : '';
+    return '${user.name}$youLabel ($role)';
   }
 }
 
