@@ -1,4 +1,5 @@
 class AppRoutes {
+  static const authGate = '/';
   static const login = '/login';
   static const home = '/home';
 
@@ -7,6 +8,7 @@ class AppRoutes {
   static const eventDetail = '/alerts/detail';
   static const notificationCenter = '/notifications';
   static const family = '/family';
+  static const cameraFeed = '/camera/feed';
   static const cameraConfig = '/camera/config';
   static const aiSettings = '/ai/settings';
   static const diagnostics = '/diagnostics';

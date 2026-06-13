@@ -1,10 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../services/token_service.dart';
 
 class LoginViewModel extends ChangeNotifier {
-  final AuthService _authService = AuthService();
-  final TokenService _tokenService = TokenService();
+  final AuthService _authService;
+  final TokenService _tokenService;
+
+  LoginViewModel({AuthService? authService, TokenService? tokenService})
+    : _authService = authService ?? AuthService(),
+      _tokenService = tokenService ?? TokenService();
 
   bool _isLoading = false;
   String? _errorMessage;
@@ -40,6 +46,28 @@ class LoginViewModel extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<bool> faceLogin({required File imageFile}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    _isSuccess = false;
+    notifyListeners();
+
+    try {
+      final result = await _authService.faceLogin(imageFile: imageFile);
+
+      await _tokenService.saveToken(result.token);
+
+      _isSuccess = true;
+      return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

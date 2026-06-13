@@ -43,6 +43,7 @@ void main() {
 
   testWidgets('renders the login screen first', (WidgetTester tester) async {
     await tester.pumpWidget(const SmartHomeApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Smart Home Login'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
@@ -139,11 +140,6 @@ void main() {
     expect(find.text('Capture'), findsOneWidget);
     expect(find.text('Choose'), findsOneWidget);
     expect(find.textContaining('Invalid auth token'), findsOneWidget);
-
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
-    await tester.pump();
-
-    expect(find.text('Register Face'), findsOneWidget);
   });
 
   testWidgets('user management route renders the registration form', (

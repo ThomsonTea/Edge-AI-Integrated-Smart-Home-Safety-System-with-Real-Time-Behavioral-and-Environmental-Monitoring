@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../routing/routes.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/notification_viewmodel.dart';
 import '../widgets/ai_event_list.dart';
 
@@ -66,32 +67,39 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       onRefresh: _viewModel.refreshNotifications,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Notification Center (${_viewModel.events.length})',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Notification Center',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${_viewModel.events.length} notifications',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
               if (_viewModel.isLoading)
                 const SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: AppSpacing.xl,
+                  height: AppSpacing.xl,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
             ],
           ),
           if (_viewModel.errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Error: ${_viewModel.errorMessage}',
-              style: const TextStyle(color: Colors.red),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _InlineNotificationError(message: _viewModel.errorMessage!),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           if (_viewModel.events.isEmpty)
             const _EmptyNotificationState()
           else
@@ -109,6 +117,39 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
   }
 }
 
+class _InlineNotificationError extends StatelessWidget {
+  final String message;
+
+  const _InlineNotificationError({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.errorContainer.withValues(alpha: 0.6),
+      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Error: $message',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _NotificationErrorState extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -117,19 +158,33 @@ class _NotificationErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.error_outline, color: colorScheme.error),
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              'Error: $message',
+              'Unable to load notifications',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -144,8 +199,23 @@ class _EmptyNotificationState extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.35,
-      child: const Center(
-        child: Text('No notifications yet', textAlign: TextAlign.center),
+      child: Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.notifications_none,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                const Text('No notifications yet', textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

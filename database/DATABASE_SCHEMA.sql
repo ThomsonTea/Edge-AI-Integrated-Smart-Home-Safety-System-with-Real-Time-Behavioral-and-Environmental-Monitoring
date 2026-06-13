@@ -186,6 +186,7 @@ CREATE TABLE public.profiles (
     group_type character varying(100),
     hash_password text,
     face_signature text,
+    profile_image_path text,
     last_seen timestamp with time zone,
     is_blacklisted boolean DEFAULT false,
     email character varying(255),
@@ -375,4 +376,3 @@ ALTER TABLE ONLY public.profiles
 --
 
 \unrestrict hJVKP7v1e883wgQ6JczLQ6Dc9z4A8mwrTdeEZv0ZtBl5PJlY6CtDaCzzboe9eSw
-

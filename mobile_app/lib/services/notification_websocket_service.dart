@@ -35,6 +35,7 @@ class NotificationWebSocketService {
   WebSocketChannel? _channel;
   StreamSubscription<dynamic>? _subscription;
   Timer? _reconnectTimer;
+  Future<void> Function()? _onAuthFailure;
   DateTime? _sessionStartedAt;
   bool _hasEstablishedBaseline = false;
   bool _shouldReconnect = false;
@@ -42,6 +43,10 @@ class NotificationWebSocketService {
 
   @visibleForTesting
   bool get shouldReconnect => _shouldReconnect;
+
+  void setAuthFailureHandler(Future<void> Function()? handler) {
+    _onAuthFailure = handler;
+  }
 
   Future<void> start() async {
     _sessionStartedAt ??= DateTime.now().toUtc();
@@ -213,5 +218,9 @@ class NotificationWebSocketService {
     _shouldReconnect = false;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
+    final handler = _onAuthFailure;
+    if (handler != null) {
+      unawaited(handler());
+    }
   }
 }

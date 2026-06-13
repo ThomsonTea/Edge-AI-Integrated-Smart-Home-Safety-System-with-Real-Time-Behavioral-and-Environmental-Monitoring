@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../domain/models/user.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/face_registration_viewmodel.dart';
 
 class FaceRegistrationScreen extends StatefulWidget {
@@ -66,7 +68,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         _MessagePanel(
           errorMessage: _viewModel.errorMessage,
@@ -84,22 +86,22 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
           },
           onRefresh: _viewModel.loadUsers,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         _ImageActions(
           onCameraPressed: () => _pickImage(ImageSource.camera),
           onGalleryPressed: () => _pickImage(ImageSource.gallery),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         _ImagePreview(image: _viewModel.selectedImage),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xl),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _viewModel.isLoading ? null : _registerFace,
             icon: _viewModel.isLoading
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: AppSpacing.lg,
+                    height: AppSpacing.lg,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.face_retouching_natural),
@@ -148,21 +150,18 @@ class _UserSelector extends StatelessWidget {
               tooltip: 'Refresh users',
               icon: isLoading
                   ? const SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: AppSpacing.lg,
+                      height: AppSpacing.lg,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.refresh),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<User>(
           initialValue: selectedUser,
-          decoration: const InputDecoration(
-            labelText: 'User profile',
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(labelText: 'User profile'),
           items: users
               .map(
                 (user) => DropdownMenuItem<User>(
@@ -177,7 +176,7 @@ class _UserSelector extends StatelessWidget {
           onChanged: users.isEmpty ? null : onChanged,
         ),
         if (users.isEmpty && !isLoading) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
           const Text('No users available.'),
         ],
       ],
@@ -211,7 +210,7 @@ class _ImageActions extends StatelessWidget {
             label: const Text('Capture'),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.md),
         Expanded(
           child: OutlinedButton.icon(
             onPressed: onGalleryPressed,
@@ -238,15 +237,18 @@ class _ImagePreview extends StatelessWidget {
         height: 220,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
-        child: const Text('No face image selected'),
+        child: Text(
+          'No face image selected',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
       );
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
       child: Image.file(
         selectedImage,
         height: 260,
@@ -277,14 +279,18 @@ class _MessagePanel extends StatelessWidget {
     }
 
     final isError = errorMessage != null;
-    final color = isError ? Colors.red : Colors.green;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = isError
+        ? (isDark ? AppColors.dangerDark : AppColors.danger)
+        : (isDark ? AppColors.successDark : AppColors.success);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        color: color.withValues(alpha: 0.08),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +299,7 @@ class _MessagePanel extends StatelessWidget {
             isError ? Icons.error_outline : Icons.check_circle,
             color: color,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(child: Text(message)),
           IconButton(
             onPressed: onDismiss,

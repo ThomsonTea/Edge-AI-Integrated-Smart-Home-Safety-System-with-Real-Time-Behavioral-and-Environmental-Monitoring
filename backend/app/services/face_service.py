@@ -18,6 +18,7 @@ load_dotenv()
 FACE_MODEL_NAME = "insightface.buffalo_s"
 FACE_EMBEDDING_DIMENSION = 512
 DEFAULT_FACE_MATCH_THRESHOLD = 0.45
+DEFAULT_FACE_LOGIN_THRESHOLD = 0.60
 MODEL_ROOT = Path(__file__).resolve().parents[2] / "models" / "insightface"
 
 
@@ -49,6 +50,34 @@ def _read_face_match_threshold() -> float:
 FACE_MATCH_THRESHOLD = _read_face_match_threshold()
 
 
+def _read_face_login_threshold() -> float:
+    raw_value = os.getenv("FACE_LOGIN_THRESHOLD")
+
+    if raw_value is None or raw_value.strip() == "":
+        return DEFAULT_FACE_LOGIN_THRESHOLD
+
+    try:
+        threshold = float(raw_value)
+    except ValueError:
+        print(
+            "Invalid FACE_LOGIN_THRESHOLD="
+            f"{raw_value}; using {DEFAULT_FACE_LOGIN_THRESHOLD:.2f}"
+        )
+        return DEFAULT_FACE_LOGIN_THRESHOLD
+
+    if threshold <= 0 or threshold >= 1:
+        print(
+            "FACE_LOGIN_THRESHOLD should be between 0 and 1; "
+            f"using {DEFAULT_FACE_LOGIN_THRESHOLD:.2f}"
+        )
+        return DEFAULT_FACE_LOGIN_THRESHOLD
+
+    return threshold
+
+
+FACE_LOGIN_THRESHOLD = _read_face_login_threshold()
+
+
 class FaceRegistrationError(ValueError):
     """Raised when a face cannot be registered from the provided image."""
 
@@ -75,6 +104,10 @@ class FaceRecognitionResult(dict):
             profile_name=profile.username,
             confidence=float(confidence),
         )
+
+
+class FaceLoginError(ValueError):
+    """Raised when face login cannot authenticate a profile."""
 
 
 class FaceService:
@@ -138,6 +171,29 @@ class FaceService:
 
         return [float(value) for value in values]
 
+    def generate_login_embedding(self, image: np.ndarray) -> tuple[list[float], int]:
+        faces = self.face_app.get(image)
+        face_count = len(faces)
+        print(f"Face login detected face count: {face_count}")
+
+        if face_count == 0:
+            raise FaceLoginError("No face detected in image.")
+
+        if face_count > 1:
+            raise FaceLoginError("Multiple faces detected in image.")
+
+        embedding = faces[0].embedding
+
+        if embedding is None:
+            raise FaceLoginError("Face embedding could not be generated.")
+
+        values = np.asarray(embedding, dtype=np.float32).tolist()
+
+        if len(values) != FACE_EMBEDDING_DIMENSION:
+            raise FaceLoginError(f"Unexpected embedding dimension: {len(values)}.")
+
+        return [float(value) for value in values], face_count
+
     def serialize_embedding(self, embedding: list[float]) -> str:
         payload: dict[str, Any] = {
             "model": FACE_MODEL_NAME,
@@ -148,7 +204,12 @@ class FaceService:
 
         return json.dumps(payload, separators=(",", ":"))
 
-    def deserialize_embedding(self, face_signature: str) -> list[float]:
+    def deserialize_embedding(
+        self,
+        face_signature: str,
+        *,
+        require_current_model: bool = False,
+    ) -> list[float]:
         try:
             payload = json.loads(face_signature)
         except (TypeError, json.JSONDecodeError):
@@ -156,6 +217,13 @@ class FaceService:
 
         if not isinstance(payload, dict):
             raise FaceRegistrationError("Stored face signature has invalid format.")
+
+        model = payload.get("model")
+        if require_current_model and model != FACE_MODEL_NAME:
+            raise FaceLoginError(
+                "Stored face signature model mismatch: "
+                f"{model or 'unknown'} != {FACE_MODEL_NAME}."
+            )
 
         embedding = payload.get("embedding")
 
@@ -170,6 +238,91 @@ class FaceService:
             )
 
         return values
+
+    def load_login_profiles(self, db: Session) -> list[Profile]:
+        return db.query(Profile).filter(Profile.face_signature.isnot(None)).all()
+
+    def recognize_face_for_login(
+        self,
+        image: np.ndarray,
+        db: Session,
+    ) -> Profile:
+        try:
+            probe_embedding, _ = self.generate_login_embedding(image)
+        except FaceLoginError as error:
+            self._log_face_login_decision(
+                best_profile_id=None,
+                best_score=0.0,
+                accepted=False,
+                reason=str(error),
+            )
+            raise
+
+        best_profile = None
+        best_score = 0.0
+        model_mismatch_count = 0
+
+        for profile in self.load_login_profiles(db):
+            try:
+                registered_embedding = self.deserialize_embedding(
+                    profile.face_signature,
+                    require_current_model=True,
+                )
+            except FaceLoginError as error:
+                model_mismatch_count += 1
+                print(f"Face login skipped profile_id={profile.id}: {error}")
+                continue
+            except (FaceRegistrationError, TypeError, ValueError) as error:
+                print(
+                    "Face login skipped invalid signature for "
+                    f"profile_id={profile.id}: {error}"
+                )
+                continue
+
+            score = self.cosine_similarity(probe_embedding, registered_embedding)
+
+            if score > best_score:
+                best_score = score
+                best_profile = profile
+
+        if best_profile is None:
+            reason = (
+                "Stored face signature model mismatch."
+                if model_mismatch_count > 0
+                else "Face not recognized."
+            )
+            self._log_face_login_decision(
+                best_profile_id=None,
+                best_score=best_score,
+                accepted=False,
+                reason=reason,
+            )
+            raise FaceLoginError(reason)
+
+        if best_score < FACE_LOGIN_THRESHOLD:
+            self._log_face_login_decision(
+                best_profile_id=best_profile.id,
+                best_score=best_score,
+                accepted=False,
+                reason="Face not recognized.",
+            )
+            raise FaceLoginError("Face not recognized.")
+
+        if best_profile.is_blacklisted:
+            self._log_face_login_decision(
+                best_profile_id=best_profile.id,
+                best_score=best_score,
+                accepted=False,
+                reason="Blacklisted profile.",
+            )
+            raise FaceLoginError("Face login is not allowed for this profile.")
+
+        self._log_face_login_decision(
+            best_profile_id=best_profile.id,
+            best_score=best_score,
+            accepted=True,
+        )
+        return best_profile
 
     def cosine_similarity(self, a: list[float], b: list[float]) -> float:
         if not a or not b or len(a) != len(b):
@@ -279,6 +432,26 @@ class FaceService:
             f"best_similarity={best_score:.3f}, "
             f"threshold={FACE_MATCH_THRESHOLD:.3f}, "
             f"classification={classification}"
+        )
+
+        if reason:
+            message = f"{message}, reason={reason}"
+
+        print(message)
+
+    def _log_face_login_decision(
+        self,
+        best_profile_id: int | None,
+        best_score: float,
+        accepted: bool,
+        reason: str | None = None,
+    ) -> None:
+        message = (
+            "Face login decision: "
+            f"best_profile_id={best_profile_id}, "
+            f"best_similarity={best_score:.3f}, "
+            f"threshold={FACE_LOGIN_THRESHOLD:.3f}, "
+            f"accepted={accepted}"
         )
 
         if reason:

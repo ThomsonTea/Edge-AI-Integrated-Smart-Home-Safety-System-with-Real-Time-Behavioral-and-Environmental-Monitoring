@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../config/app_config.dart';
 import '../../domain/models/ai_event.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/event_detail_viewmodel.dart';
 
 class EventDetailScreen extends StatefulWidget {
@@ -62,61 +64,61 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     }
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
-        Row(
-          children: [
-            Icon(
-              _eventIcon(event.eventType),
-              color: _eventIconColor(event.eventType, context),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                event.displayType,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-          ],
+        _EventDetailHeader(
+          event: event,
+          icon: _eventIcon(event.eventType),
+          color: _eventIconColor(event.eventType, context),
         ),
-        const SizedBox(height: 6),
-        Text(
-          event.recognitionSummary,
-          style: Theme.of(context).textTheme.bodyLarge,
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.lg),
         _EventSnapshot(imagePath: event.imagePath),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         if (_viewModel.errorMessage != null) ...[
-          Text(
-            'Error: ${_viewModel.errorMessage}',
-            style: const TextStyle(color: Colors.red),
-          ),
-          const SizedBox(height: 12),
+          _InlineDetailError(message: _viewModel.errorMessage!),
+          const SizedBox(height: AppSpacing.md),
         ],
-        _DetailRow(label: 'Recognition', value: event.recognitionSummary),
-        if (!event.isUnknownPerson &&
-            (event.profileName != null || event.profileId != null))
-          _DetailRow(
-            label: event.isKnownPerson ? 'Known Person' : 'Profile',
-            value: event.profileDisplay,
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Event Details',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DetailRow(
+                  label: 'Recognition',
+                  value: event.recognitionSummary,
+                ),
+                if (!event.isUnknownPerson &&
+                    (event.profileName != null || event.profileId != null))
+                  _DetailRow(
+                    label: event.isKnownPerson ? 'Known Person' : 'Profile',
+                    value: event.profileDisplay,
+                  ),
+                if (event.isUnknownPerson)
+                  const _DetailRow(
+                    label: 'Result',
+                    value: 'Unregistered person detected',
+                  ),
+                _DetailRow(label: 'Premise', value: event.premiseDisplay),
+                _DetailRow(
+                  label: 'Timestamp',
+                  value: _formatTimestamp(event.timestamp),
+                ),
+                _DetailRow(label: 'Confidence', value: event.confidenceDisplay),
+                _DetailRow(
+                  label: 'Status',
+                  value: event.isAcknowledged ? 'Acknowledged' : 'New',
+                ),
+              ],
+            ),
           ),
-        if (event.isUnknownPerson)
-          const _DetailRow(
-            label: 'Result',
-            value: 'Unregistered person detected',
-          ),
-        _DetailRow(label: 'Premise', value: event.premiseDisplay),
-        _DetailRow(
-          label: 'Timestamp',
-          value: _formatTimestamp(event.timestamp),
         ),
-        _DetailRow(label: 'Confidence', value: event.confidenceDisplay),
-        _DetailRow(
-          label: 'Status',
-          value: event.isAcknowledged ? 'Acknowledged' : 'New',
-        ),
-        const SizedBox(height: 20),
+        const SizedBox(height: AppSpacing.lg),
         if (!event.isAcknowledged)
           SizedBox(
             width: double.infinity,
@@ -126,8 +128,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   : _viewModel.acknowledgeEvent,
               icon: _viewModel.isAcknowledging
                   ? const SizedBox(
-                      width: 18,
-                      height: 18,
+                      width: AppSpacing.lg,
+                      height: AppSpacing.lg,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.check),
@@ -152,8 +154,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return switch (eventType) {
       'known_person' => Icons.person,
       'unknown_person' => Icons.warning_amber,
+      'blacklisted_person' => Icons.block,
       'person_detected' => Icons.person_search,
+      'fire_alert' => Icons.local_fire_department,
+      'gas_alert' => Icons.gas_meter,
       'sensor_alert' => Icons.sensors,
+      'system_error' => Icons.error_outline,
       'fall_detected' => Icons.emergency,
       'camera_offline' => Icons.videocam_off,
       _ => Icons.notifications,
@@ -162,13 +168,83 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
   Color _eventIconColor(String eventType, BuildContext context) {
     return switch (eventType) {
-      'known_person' => Colors.green,
-      'unknown_person' => Colors.orange,
-      'sensor_alert' => Colors.red,
-      'fall_detected' => Colors.red,
-      'camera_offline' => Colors.grey,
+      'known_person' => _safeColor(context),
+      'unknown_person' => _warningColor(context),
+      'blacklisted_person' => _dangerColor(context),
+      'fire_alert' => _dangerColor(context),
+      'gas_alert' => _dangerColor(context),
+      'sensor_alert' => _dangerColor(context),
+      'system_error' => _dangerColor(context),
+      'fall_detected' => _dangerColor(context),
+      'camera_offline' => _warningColor(context),
       _ => Theme.of(context).colorScheme.primary,
     };
+  }
+
+  Color _safeColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppColors.successDark
+        : AppColors.success;
+  }
+
+  Color _warningColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppColors.warningDark
+        : AppColors.warning;
+  }
+
+  Color _dangerColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? AppColors.dangerDark
+        : AppColors.danger;
+  }
+}
+
+class _EventDetailHeader extends StatelessWidget {
+  final AiEvent event;
+  final IconData icon;
+  final Color color;
+
+  const _EventDetailHeader({
+    required this.event,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              backgroundColor: color.withValues(alpha: 0.12),
+              foregroundColor: color,
+              child: Icon(icon),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.displayType,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    event.recognitionSummary,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -195,15 +271,21 @@ class _EventSnapshot extends StatelessWidget {
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        imageUrl,
-        height: 220,
-        width: double.infinity,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return _SnapshotFallback(message: 'Snapshot could not be loaded');
-        },
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        ),
+        child: Image.network(
+          imageUrl,
+          height: 220,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _SnapshotFallback(message: 'Snapshot could not be loaded');
+          },
+        ),
       ),
     );
   }
@@ -237,13 +319,23 @@ class _SnapshotFallback extends StatelessWidget {
       width: double.infinity,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: Theme.of(context).colorScheme.outline),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message, textAlign: TextAlign.center),
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(message, textAlign: TextAlign.center),
+          ],
+        ),
       ),
     );
   }
@@ -258,7 +350,7 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -266,7 +358,9 @@ class _DetailRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(child: Text(value)),
@@ -284,19 +378,66 @@ class _EventDetailErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.error_outline, color: colorScheme.error),
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              'Error: $message',
+              'Unable to load event detail',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineDetailError extends StatelessWidget {
+  final String message;
+
+  const _InlineDetailError({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.errorContainer.withValues(alpha: 0.6),
+      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Error: $message',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
           ],
         ),
       ),

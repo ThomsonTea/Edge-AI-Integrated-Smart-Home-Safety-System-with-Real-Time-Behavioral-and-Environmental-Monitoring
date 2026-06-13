@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../ui/layout/bottom_nav_shell.dart';
+import '../ui/screens/auth_gate_screen.dart';
+import '../ui/screens/camera_feed_screen.dart';
 import '../ui/screens/event_detail_screen.dart';
 import '../ui/screens/event_history_screen.dart';
 import '../ui/screens/face_registration_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/notification_center_screen.dart';
+import '../ui/screens/profile_screen.dart';
 import '../ui/screens/user_access_screen.dart';
 
 import 'routes.dart';
@@ -16,6 +19,9 @@ class AppRouter {
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
+      case AppRoutes.authGate:
+        return MaterialPageRoute(builder: (_) => const AuthGateScreen());
+
       case AppRoutes.login:
         return MaterialPageRoute(builder: (_) => const LoginScreen());
 
@@ -30,6 +36,11 @@ class AppRouter {
       case AppRoutes.notificationCenter:
         return MaterialPageRoute(
           builder: (_) => const NotificationCenterScreen(showAppBar: true),
+        );
+
+      case AppRoutes.cameraFeed:
+        return MaterialPageRoute(
+          builder: (_) => const CameraFeedScreen(showAppBar: true),
         );
 
       case AppRoutes.eventDetail:
@@ -52,6 +63,22 @@ class AppRouter {
       case AppRoutes.faceRegistration:
         return MaterialPageRoute(
           builder: (_) => const FaceRegistrationScreen(),
+        );
+
+      case AppRoutes.aiSettings:
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('AI Settings')),
+            body: const Center(child: Text('AI Settings')),
+          ),
+        );
+
+      case AppRoutes.profile:
+        return MaterialPageRoute(
+          builder: (_) => Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: const ProfileScreen(),
+          ),
         );
 
       default:

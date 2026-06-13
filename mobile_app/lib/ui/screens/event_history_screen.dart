@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../domain/models/ai_event.dart';
 import '../../routing/routes.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/event_history_viewmodel.dart';
 import '../widgets/ai_event_list.dart';
 
@@ -133,25 +134,35 @@ class _EventHistoryScreenState extends State<EventHistoryScreen> {
       onRefresh: _viewModel.refreshEvents,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           Row(
             children: [
               Expanded(
-                child: Text(
-                  'Event History (${_viewModel.events.length})',
-                  style: Theme.of(context).textTheme.titleLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Event History',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '${_viewModel.events.length} events found',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ),
               if (_viewModel.isRefreshing)
                 const SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: AppSpacing.xl,
+                  height: AppSpacing.xl,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           _EventFilterPanel(
             eventTypeOptions: _eventTypeOptions,
             selectedEventType: _viewModel.selectedEventType,
@@ -165,18 +176,48 @@ class _EventHistoryScreenState extends State<EventHistoryScreen> {
             onClearFilters: _viewModel.clearFilters,
           ),
           if (_viewModel.errorMessage != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              'Error: ${_viewModel.errorMessage}',
-              style: const TextStyle(color: Colors.red),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _InlineEventError(message: _viewModel.errorMessage!),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.lg),
           if (_viewModel.events.isEmpty)
             const _EmptyEventState()
           else
             AiEventList(events: _viewModel.events, onEventTap: _handleEventTap),
         ],
+      ),
+    );
+  }
+}
+
+class _InlineEventError extends StatelessWidget {
+  final String message;
+
+  const _InlineEventError({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: colorScheme.errorContainer.withValues(alpha: 0.6),
+      borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: colorScheme.onErrorContainer),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Error: $message',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onErrorContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -207,65 +248,72 @@ class _EventFilterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        DropdownButtonFormField<String?>(
-          initialValue: selectedEventType,
-          decoration: const InputDecoration(
-            labelText: 'Event type',
-            border: OutlineInputBorder(),
-          ),
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('All event types'),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Filters', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: selectedEventType,
+              decoration: const InputDecoration(
+                labelText: 'Event type',
+                prefixIcon: Icon(Icons.tune),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('All event types'),
+                ),
+                ...eventTypeOptions.map(
+                  (option) => DropdownMenuItem<String?>(
+                    value: option.value,
+                    child: Text(option.label),
+                  ),
+                ),
+              ],
+              onChanged: onEventTypeChanged,
             ),
-            ...eventTypeOptions.map(
-              (option) => DropdownMenuItem<String?>(
-                value: option.value,
-                child: Text(option.label),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton.icon(
+              onPressed: onDateRangePressed,
+              icon: const Icon(Icons.date_range),
+              label: Text(_dateRangeLabel),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String>(
+              initialValue: _acknowledgementValue,
+              decoration: const InputDecoration(
+                labelText: 'Status',
+                prefixIcon: Icon(Icons.task_alt),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('All statuses')),
+                DropdownMenuItem(value: 'new', child: Text('New')),
+                DropdownMenuItem(
+                  value: 'acknowledged',
+                  child: Text('Acknowledged'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                onAcknowledgementChanged(value);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onClearFilters,
+                icon: const Icon(Icons.clear),
+                label: const Text('Clear filters'),
               ),
             ),
           ],
-          onChanged: onEventTypeChanged,
         ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: onDateRangePressed,
-          icon: const Icon(Icons.date_range),
-          label: Text(_dateRangeLabel),
-        ),
-        const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          initialValue: _acknowledgementValue,
-          decoration: const InputDecoration(
-            labelText: 'Status',
-            border: OutlineInputBorder(),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'all', child: Text('All statuses')),
-            DropdownMenuItem(value: 'new', child: Text('New')),
-            DropdownMenuItem(
-              value: 'acknowledged',
-              child: Text('Acknowledged'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            onAcknowledgementChanged(value);
-          },
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            onPressed: onClearFilters,
-            icon: const Icon(Icons.clear),
-            label: const Text('Clear filters'),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -308,19 +356,33 @@ class _EventErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Icon(Icons.error_outline, color: colorScheme.error),
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              'Error: $message',
+              'Unable to load events',
+              style: Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.red),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(onPressed: onRetry, child: const Text('Retry')),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
           ],
         ),
       ),
@@ -335,8 +397,23 @@ class _EmptyEventState extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.35,
-      child: const Center(
-        child: Text('No events found', textAlign: TextAlign.center),
+      child: Center(
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.event_busy,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                const Text('No events found', textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

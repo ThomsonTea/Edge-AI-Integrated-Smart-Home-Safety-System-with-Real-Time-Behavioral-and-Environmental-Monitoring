@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../routing/routes.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/user_access_viewmodel.dart';
 import '../widgets/user_list.dart';
 import '../widgets/user_register_form.dart';
@@ -70,18 +71,51 @@ class _UserAccessScreenState extends State<UserAccessScreen> {
           ),
           body: vm.isLoading && vm.users.isEmpty
               ? const Center(child: CircularProgressIndicator())
-              : Column(
-                  children: [
-                    _RegisterFormHost(viewModel: vm),
-                    const Divider(),
-                    Expanded(
-                      child: UserList(
-                        users: vm.users,
-                        isDeleting: vm.isDeleting,
-                        onDelete: vm.deleteUser,
+              : SafeArea(
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.lg,
+                          AppSpacing.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.admin_panel_settings_outlined,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                'Provision and manage system users',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      _RegisterFormHost(viewModel: vm),
+                      const SizedBox(height: AppSpacing.sm),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            0,
+                            AppSpacing.lg,
+                            AppSpacing.lg,
+                          ),
+                          child: UserList(
+                            users: vm.users,
+                            isDeleting: vm.isDeleting,
+                            onDelete: vm.deleteUser,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
         );
       },

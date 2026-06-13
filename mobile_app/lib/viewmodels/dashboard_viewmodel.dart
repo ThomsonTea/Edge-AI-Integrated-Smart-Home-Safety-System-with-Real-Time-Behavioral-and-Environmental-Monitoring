@@ -1,52 +1,90 @@
 import 'package:flutter/material.dart';
-import '../domain/models/ai_event.dart';
-import '../services/event_service.dart';
-import '../services/notification_websocket_service.dart';
-import '../services/token_service.dart';
+
+import '../domain/models/dashboard_summary.dart';
+import '../services/dashboard_service.dart';
+
+class DashboardFilterOption {
+  final String value;
+  final String label;
+
+  const DashboardFilterOption({required this.value, required this.label});
+}
 
 class DashboardViewModel extends ChangeNotifier {
-  final EventService _eventService = EventService();
-  final TokenService _tokenService = TokenService();
+  final DashboardService _dashboardService;
 
-  List<AiEvent> _alerts = [];
+  DashboardViewModel({DashboardService? dashboardService})
+    : _dashboardService = dashboardService ?? DashboardService();
+
+  static const timeFilterOptions = [
+    DashboardFilterOption(value: 'today', label: 'Today'),
+    DashboardFilterOption(value: 'yesterday', label: 'Yesterday'),
+    DashboardFilterOption(value: 'last_7_days', label: 'Last 7 Days'),
+    DashboardFilterOption(value: 'all', label: 'All'),
+  ];
+
+  static const eventTypeFilterOptions = [
+    DashboardFilterOption(value: 'all', label: 'All'),
+    DashboardFilterOption(value: 'known_person', label: 'Known Person'),
+    DashboardFilterOption(value: 'unknown_person', label: 'Unknown Person'),
+    DashboardFilterOption(
+      value: 'blacklisted_person',
+      label: 'Blacklisted Person',
+    ),
+    DashboardFilterOption(value: 'fire_alert', label: 'Fire Alert'),
+    DashboardFilterOption(value: 'gas_alert', label: 'Gas Alert'),
+    DashboardFilterOption(value: 'system_error', label: 'System Error'),
+  ];
+
+  DashboardSummary _summary = DashboardSummary.empty();
   bool _isLoading = false;
   String? _errorMessage;
-  String? _jwtToken;
+  String _selectedTimeFilter = 'today';
+  String _selectedEventType = 'all';
 
-  List<AiEvent> get alerts => _alerts;
+  DashboardSummary get summary => _summary;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  String? get jwtToken => _jwtToken;
+  String get selectedTimeFilter => _selectedTimeFilter;
+  String get selectedEventType => _selectedEventType;
+  bool get isEmpty =>
+      !_isLoading &&
+      _errorMessage == null &&
+      _summary.eventTrend.isEmpty &&
+      _summary.eventTypeCounts.total == 0 &&
+      _summary.latestCriticalEvent == null;
 
-  Future<void> initializeDashboard() async {
-    _jwtToken = await _tokenService.getToken();
-    notifyListeners();
-    await loadAlerts();
+  Future<void> initializeDashboard() {
+    return loadSummary();
   }
 
-  Future<void> loadAlerts() async {
+  Future<void> loadSummary() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      _alerts = await _eventService.fetchEvents();
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _errorMessage = e.toString();
+      _summary = await _dashboardService.fetchSummary(
+        timeFilter: _selectedTimeFilter,
+        eventType: _selectedEventType,
+      );
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> logout() async {
-    await NotificationWebSocketService.instance.stop();
-    await _tokenService.deleteToken();
+  Future<void> setTimeFilter(String value) async {
+    if (value == _selectedTimeFilter) return;
+    _selectedTimeFilter = value;
+    await loadSummary();
   }
 
-  void clearError() {
-    _errorMessage = null;
-    notifyListeners();
+  Future<void> setEventTypeFilter(String value) async {
+    if (value == _selectedEventType) return;
+    _selectedEventType = value;
+    await loadSummary();
   }
 }

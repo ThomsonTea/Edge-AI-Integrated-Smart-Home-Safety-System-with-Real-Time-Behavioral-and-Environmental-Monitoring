@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import '../../config/app_config.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
 
 class CameraWidget extends StatelessWidget {
   final String? jwtToken;
@@ -10,20 +12,23 @@ class CameraWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final token = jwtToken?.trim();
+    final colorScheme = Theme.of(context).colorScheme;
+    final dangerColor = Theme.of(context).brightness == Brightness.dark
+        ? AppColors.dangerDark
+        : AppColors.danger;
 
     return Container(
-      height: 240,
+      height: 260,
       width: double.infinity,
-      margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.black,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.redAccent, width: 2),
-        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: colorScheme.outline),
       ),
       clipBehavior: Clip.hardEdge,
       child: token == null || token.isEmpty || token == 'null'
           ? const _CameraMessage(
+              icon: Icons.lock_outline,
               title: 'Camera Locked',
               message: 'Sign in again to view the secure camera feed.',
             )
@@ -34,30 +39,32 @@ class CameraWidget extends StatelessWidget {
               error: (context, error, stack) {
                 return Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Camera Offline\n$error',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 12,
-                      ),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: _CameraMessage(
+                      icon: Icons.videocam_off_outlined,
+                      iconColor: dangerColor,
+                      title: 'Camera Offline',
+                      message: error.toString(),
                     ),
                   ),
                 );
               },
               loading: (context) {
-                return const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(color: Colors.redAccent),
-                      SizedBox(height: 10),
-                      Text(
-                        'Connecting to Secure Feed...',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    ],
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'Connecting to Secure Feed...',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
@@ -67,36 +74,51 @@ class CameraWidget extends StatelessWidget {
 }
 
 class _CameraMessage extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
   final String title;
   final String message;
 
-  const _CameraMessage({required this.title, required this.message});
+  const _CameraMessage({
+    required this.icon,
+    this.iconColor,
+    required this.title,
+    required this.message,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.lock, color: Colors.redAccent, size: 32),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ColoredBox(
+      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: iconColor ?? colorScheme.primary,
+                size: AppSpacing.xxl,
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-          ],
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../routing/routes.dart';
+import '../../theme/app_spacing.dart';
 import '../../viewmodels/session_viewmodel.dart';
+import '../screens/camera_feed_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/notification_center_screen.dart';
+import '../screens/profile_screen.dart';
 import 'app_drawer.dart';
 
 class BottomNavShell extends StatefulWidget {
@@ -17,32 +20,29 @@ class _BottomNavShellState extends State<BottomNavShell> {
   final SessionViewModel _sessionViewModel = SessionViewModel();
   int _index = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    NotificationCenterScreen(),
-    _ComingSoonScreen(
-      icon: Icons.videocam,
-      title: 'Camera Feed',
-      description: 'The dedicated camera feed page will appear here.',
-    ),
-    _ComingSoonScreen(
-      icon: Icons.person,
-      title: 'Profile',
-      description: 'Profile settings will appear here.',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
+    _sessionViewModel.addListener(_onSessionUpdate);
     _sessionViewModel.startSession();
   }
 
   @override
   void dispose() {
+    _sessionViewModel.removeListener(_onSessionUpdate);
     _sessionViewModel.disposeSession();
     _sessionViewModel.dispose();
     super.dispose();
+  }
+
+  void _onSessionUpdate() {
+    if (!mounted || !_sessionViewModel.isAuthExpired) return;
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.login,
+      (route) => false,
+    );
   }
 
   Future<void> _handleLogout() async {
@@ -60,70 +60,63 @@ class _BottomNavShellState extends State<BottomNavShell> {
     setState(() => _index = value);
   }
 
+  void _openTab(int index) {
+    setState(() => _index = index);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final screens = [
+      DashboardScreen(
+        onViewCamera: () => _openTab(2),
+        onViewAlerts: () => _openTab(1),
+      ),
+      const NotificationCenterScreen(),
+      const CameraFeedScreen(),
+      ProfileScreen(onLogout: _handleLogout),
+    ];
+
     return Scaffold(
       drawer: AppDrawer(onLogout: _handleLogout),
 
-      appBar: AppBar(title: const Text("Smart Security System")),
+      appBar: AppBar(
+        title: const Text("Smart Security System"),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: Icon(Icons.shield_outlined, color: colorScheme.primary),
+          ),
+        ],
+      ),
 
-      body: _screens[_index],
+      body: screens[_index],
 
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: _onTap,
-        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
             label: "Dashboard",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
+            icon: Icon(Icons.notifications_outlined),
+            activeIcon: Icon(Icons.notifications),
             label: "Alerts",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.videocam), label: "Camera"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.videocam_outlined),
+            activeIcon: Icon(Icons.videocam),
+            label: "Camera",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: "Profile",
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _ComingSoonScreen extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String description;
-
-  const _ComingSoonScreen({
-    required this.icon,
-    required this.title,
-    required this.description,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
