@@ -11,8 +11,12 @@ from app.db.database import get_db
 from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
+from app.services.ai_event_service import create_ai_event
+from app.services.notification_service import notification_payload_for_event
 
 router = APIRouter()
+
+TEST_EVENT_TYPES = {"known_person", "unknown_person", "blacklisted_person"}
 
 
 class AIEventResponse(BaseModel):
@@ -27,6 +31,14 @@ class AIEventResponse(BaseModel):
     premise_name: Optional[str] = None
     profile_id: Optional[int] = None
     profile_name: Optional[str] = None
+
+
+class AIEventTestCreateRequest(BaseModel):
+    event_type: str
+    premise_id: int
+    profile_id: Optional[int] = None
+    confidence_score: Optional[float] = None
+    image_path: Optional[str] = None
 
 
 def _get_current_profile(
@@ -77,6 +89,19 @@ def _ensure_event_access(user: Profile, event: AIEvent, action: str) -> None:
         )
 
 
+def _ensure_admin_if_role_exists(current_user: dict) -> None:
+    role = current_user.get("role")
+
+    if role is None:
+        return
+
+    if str(role).strip().lower() != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required to create test AI events",
+        )
+
+
 @router.get("", response_model=List[AIEventResponse])
 @router.get("/", response_model=List[AIEventResponse], include_in_schema=False)
 def get_ai_events(
@@ -123,6 +148,85 @@ def get_ai_events(
     events = query.order_by(AIEvent.timestamp.desc()).limit(limit).all()
 
     return [_event_to_response(event) for event in events]
+
+
+@router.get("/recent")
+def get_recent_ai_event_notifications(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
+    if not user.premise_id:
+        return []
+
+    events = (
+        db.query(AIEvent)
+        .filter(AIEvent.premise_id == user.premise_id)
+        .order_by(AIEvent.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+
+    return [notification_payload_for_event(event) for event in events]
+
+
+@router.post("/test", response_model=AIEventResponse)
+def create_test_ai_event(
+    request: AIEventTestCreateRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _ensure_admin_if_role_exists(current_user)
+
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
+    if user.premise_id is None or request.premise_id != user.premise_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to create test event for this premise",
+        )
+
+    event_type = request.event_type.strip()
+    if event_type not in TEST_EVENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported test event type",
+        )
+
+    if request.profile_id is not None:
+        profile = db.query(Profile).filter(Profile.id == request.profile_id).first()
+        if profile is None or profile.premise_id != request.premise_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="profile_id must belong to the selected premise",
+            )
+
+    event = create_ai_event(
+        db,
+        premise_id=request.premise_id,
+        event_type=event_type,
+        profile_id=request.profile_id,
+        confidence_score=request.confidence_score,
+        image_path=request.image_path,
+        is_acknowledged=False,
+    )
+
+    event_with_relationships = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.id == event.id)
+        .first()
+    )
+
+    return _event_to_response(event_with_relationships or event)
 
 
 @router.get("/{event_id}", response_model=AIEventResponse)

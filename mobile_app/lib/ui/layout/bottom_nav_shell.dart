@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../routing/routes.dart';
+import '../../viewmodels/session_viewmodel.dart';
 import '../screens/dashboard_screen.dart';
-import '../screens/event_history_screen.dart';
+import '../screens/notification_center_screen.dart';
 import 'app_drawer.dart';
 
 class BottomNavShell extends StatefulWidget {
@@ -12,11 +14,12 @@ class BottomNavShell extends StatefulWidget {
 }
 
 class _BottomNavShellState extends State<BottomNavShell> {
+  final SessionViewModel _sessionViewModel = SessionViewModel();
   int _index = 0;
 
   final List<Widget> _screens = const [
     DashboardScreen(),
-    EventHistoryScreen(),
+    NotificationCenterScreen(),
     _ComingSoonScreen(
       icon: Icons.videocam,
       title: 'Camera Feed',
@@ -29,6 +32,30 @@ class _BottomNavShellState extends State<BottomNavShell> {
     ),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _sessionViewModel.startSession();
+  }
+
+  @override
+  void dispose() {
+    _sessionViewModel.disposeSession();
+    _sessionViewModel.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogout() async {
+    await _sessionViewModel.logout();
+
+    if (!mounted) return;
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      AppRoutes.login,
+      (route) => false,
+    );
+  }
+
   void _onTap(int value) {
     setState(() => _index = value);
   }
@@ -36,7 +63,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(onLogout: _handleLogout),
 
       appBar: AppBar(title: const Text("Smart Security System")),
 

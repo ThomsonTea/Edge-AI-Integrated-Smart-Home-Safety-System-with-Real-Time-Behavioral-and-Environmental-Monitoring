@@ -5,6 +5,7 @@ class AppRoutes {
   // Drawer / secondary pages
   static const alertHistory = '/alerts/history';
   static const eventDetail = '/alerts/detail';
+  static const notificationCenter = '/notifications';
   static const family = '/family';
   static const cameraConfig = '/camera/config';
   static const aiSettings = '/ai/settings';

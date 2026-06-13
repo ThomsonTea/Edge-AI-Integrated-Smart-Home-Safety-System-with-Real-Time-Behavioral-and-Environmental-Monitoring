@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../routing/routes.dart';
 
 class AppDrawer extends StatelessWidget {
-  const AppDrawer({super.key});
+  final Future<void> Function() onLogout;
+
+  const AppDrawer({super.key, required this.onLogout});
 
   @override
   Widget build(BuildContext context) {
@@ -69,13 +71,19 @@ class AppDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.notifications),
             title: const Text("Notifications"),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.notificationCenter);
+            },
           ),
 
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text("Logout"),
-            onTap: () {},
+            onTap: () async {
+              Navigator.pop(context);
+              await onLogout();
+            },
           ),
         ],
       ),

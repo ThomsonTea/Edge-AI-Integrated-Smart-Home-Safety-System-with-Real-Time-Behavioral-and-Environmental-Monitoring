@@ -5,11 +5,15 @@ import '../ui/screens/event_detail_screen.dart';
 import '../ui/screens/event_history_screen.dart';
 import '../ui/screens/face_registration_screen.dart';
 import '../ui/screens/login_screen.dart';
+import '../ui/screens/notification_center_screen.dart';
 import '../ui/screens/user_access_screen.dart';
 
 import 'routes.dart';
 
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
       case AppRoutes.login:
@@ -21,6 +25,11 @@ class AppRouter {
       case AppRoutes.alertHistory:
         return MaterialPageRoute(
           builder: (_) => const EventHistoryScreen(showAppBar: true),
+        );
+
+      case AppRoutes.notificationCenter:
+        return MaterialPageRoute(
+          builder: (_) => const NotificationCenterScreen(showAppBar: true),
         );
 
       case AppRoutes.eventDetail:

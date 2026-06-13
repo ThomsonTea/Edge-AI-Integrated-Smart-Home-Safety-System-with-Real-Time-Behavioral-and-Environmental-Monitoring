@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/models/ai_event.dart';
 import '../services/event_service.dart';
+import '../services/notification_websocket_service.dart';
 import '../services/token_service.dart';
 
 class DashboardViewModel extends ChangeNotifier {
@@ -40,6 +41,7 @@ class DashboardViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await NotificationWebSocketService.instance.stop();
     await _tokenService.deleteToken();
   }
 

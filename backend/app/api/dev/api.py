@@ -5,6 +5,7 @@ from .endpoints import auth
 from .endpoints import user
 from .endpoints import camera
 from .endpoints import face_registration
+from .endpoints import notifications_ws
 
 api_router = APIRouter()
 
@@ -17,3 +18,4 @@ api_router.include_router(
 )
 api_router.include_router(camera.router, prefix="/camera", tags=["camera"])
 api_router.include_router(ai_events.router, prefix="/ai_events", tags=["ai_events"])
+api_router.include_router(notifications_ws.router, tags=["notifications"])

@@ -74,6 +74,33 @@ class EventService {
     );
   }
 
+  Future<List<Map<String, dynamic>>> fetchRecentNotificationPayloads({
+    int limit = 20,
+  }) async {
+    final response = await _get(
+      Uri.parse(
+        '$baseUrl/ai_events/recent',
+      ).replace(queryParameters: {'limit': limit.toString()}),
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = _decodeJson(response);
+
+      if (decoded is! List) {
+        throw Exception('Unexpected recent events response format');
+      }
+
+      return decoded.whereType<Map<String, dynamic>>().toList();
+    }
+
+    throw Exception(
+      _errorMessage(
+        fallback: 'Failed to fetch recent notifications',
+        response: response,
+      ),
+    );
+  }
+
   Future<AiEvent> acknowledgeEvent(int id) async {
     _validateEventId(id);
 

@@ -15,7 +15,7 @@ from app.models.profile import Profile
 
 load_dotenv()
 
-FACE_MODEL_NAME = "insightface.buffalo_l"
+FACE_MODEL_NAME = "insightface.buffalo_s"
 FACE_EMBEDDING_DIMENSION = 512
 DEFAULT_FACE_MATCH_THRESHOLD = 0.45
 MODEL_ROOT = Path(__file__).resolve().parents[2] / "models" / "insightface"
@@ -290,8 +290,8 @@ class FaceService:
     def _get_face_app(cls) -> FaceAnalysis:
         if cls._face_app is None:
             MODEL_ROOT.mkdir(parents=True, exist_ok=True)
-            app = FaceAnalysis(name="buffalo_l", root=str(MODEL_ROOT))
-            app.prepare(ctx_id=-1, det_size=(640, 640))
+            app = FaceAnalysis(name="buffalo_s", root=str(MODEL_ROOT))
+            app.prepare(ctx_id=-1, det_size=(320, 320))
             cls._face_app = app
 
         return cls._face_app

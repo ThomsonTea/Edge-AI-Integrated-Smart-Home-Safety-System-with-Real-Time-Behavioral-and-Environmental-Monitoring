@@ -9,7 +9,8 @@ from ultralytics import YOLO
 
 from app.db.database import SessionLocal
 from app.models.event import AIEvent
-from app.models.profile import Premise
+from app.models.profile import Premise, Profile
+from app.services.ai_event_service import create_ai_event_from_classification
 from app.services.face_service import FaceService
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
@@ -246,9 +247,10 @@ class CameraService:
                 print("⚠️ AI event skipped: snapshot could not be saved.")
                 return None
 
-            event = AIEvent(
+            event = create_ai_event_from_classification(
+                db,
                 premise_id=premise_id,
-                **self._classify_detected_person(
+                classification=self._classify_detected_person(
                     db=db,
                     premise_id=premise_id,
                     frame=frame,
@@ -257,10 +259,6 @@ class CameraService:
                 image_path=image_path,
                 is_acknowledged=False,
             )
-
-            db.add(event)
-            db.commit()
-            db.refresh(event)
 
             print(f"✅ AI event saved: {event.id}")
             return {
@@ -351,9 +349,20 @@ class CameraService:
             recognition_confidence = float(recognition.get("confidence") or 0.0)
 
             if recognition.get("matched") and recognition.get("profile_id") is not None:
+                matched_profile = (
+                    db.query(Profile)
+                    .filter(Profile.id == recognition["profile_id"])
+                    .first()
+                )
+                event_type = (
+                    "blacklisted_person"
+                    if matched_profile is not None and matched_profile.is_blacklisted
+                    else "known_person"
+                )
+
                 classification.update(
                     {
-                        "event_type": "known_person",
+                        "event_type": event_type,
                         "profile_id": recognition["profile_id"],
                         "confidence_score": self._to_confidence_percentage(
                             recognition_confidence
@@ -361,7 +370,7 @@ class CameraService:
                     }
                 )
                 print(
-                    "✅ Known person detected: "
+                    f"✅ {event_type} detected: "
                     f"profile_id={recognition['profile_id']} "
                     f"confidence={recognition_confidence:.3f}"
                 )
