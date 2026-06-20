@@ -50,6 +50,8 @@ class AiEvent {
       'known_person' => 'Known Person',
       'unknown_person' => 'Unknown Person',
       'person_detected' => 'Person Detected',
+      'fall_detected' => 'Fall Detected',
+      'prolonged_inactivity' => 'Prolonged Inactivity',
       _ => _titleCase(eventType),
     };
   }

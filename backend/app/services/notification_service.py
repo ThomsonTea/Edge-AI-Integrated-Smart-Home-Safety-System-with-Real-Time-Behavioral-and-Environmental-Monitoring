@@ -17,6 +17,8 @@ CRITICAL_EVENTS = {
     "fire_alert",
     "gas_alert",
     "system_error",
+    "fall_detected",
+    "prolonged_inactivity",
 }
 
 WARNING_EVENTS = {
@@ -44,6 +46,8 @@ def message_for_event_type(event_type: str | None) -> str:
         "gas_alert": "Gas alert detected. Check your premise immediately.",
         "camera_offline": "Camera is offline.",
         "system_error": "System error detected.",
+        "fall_detected": "Possible fall detected. Check your premise immediately.",
+        "prolonged_inactivity": "Possible prolonged inactivity detected. Check your premise immediately.",
     }.get(event_type or "", "New security event detected.")
 
 

@@ -22,6 +22,10 @@ class _EventHistoryScreenState extends State<EventHistoryScreen> {
     _EventTypeFilterOption(value: 'unknown_person', label: 'Unknown Person'),
     _EventTypeFilterOption(value: 'sensor_alert', label: 'Sensor Alert'),
     _EventTypeFilterOption(value: 'fall_detected', label: 'Fall Detected'),
+    _EventTypeFilterOption(
+      value: 'prolonged_inactivity',
+      label: 'Prolonged Inactivity',
+    ),
     _EventTypeFilterOption(value: 'camera_offline', label: 'Camera Offline'),
   ];
 

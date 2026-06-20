@@ -10,7 +10,11 @@ from ultralytics import YOLO
 from app.db.database import SessionLocal
 from app.models.event import AIEvent
 from app.models.profile import Premise, Profile
-from app.services.ai_event_service import create_ai_event_from_classification
+from app.services.ai_event_service import (
+    create_ai_event,
+    create_ai_event_from_classification,
+)
+from app.services.behavioral_anomaly_service import BehavioralAnomalyService
 from app.services.face_service import FaceService
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
@@ -23,7 +27,7 @@ class CameraService:
     def __init__(self):
         self.rtsp_url = os.getenv(
             "CAMERA_RTSP_URL",
-            "rtsp://ThomsonTea:Tyj030903@192.168.0.36/stream1"
+            "rtsp://ThomsonTea:Tyj030903@10.42.0.195/stream1"
         )
 
         self.camera_premise_id = self._read_camera_premise_id()
@@ -44,6 +48,7 @@ class CameraService:
         self.best_unknown_person_snapshot_score = 0
         self.last_snapshot_evaluation_time = 0
         self.snapshot_evaluation_interval_seconds = 4
+        self.behavior_detector = BehavioralAnomalyService()
 
         self.lock = threading.Lock()
         self.is_camera_running = False
@@ -129,6 +134,11 @@ class CameraService:
                 )
                 conf = detection["confidence"]
                 quality_score = detection["quality_score"]
+                self._process_behavior_detection(
+                    detection=detection,
+                    frame=frame_for_detection,
+                    current_time=current_time,
+                )
 
                 if not self.person_present:
                     print(
@@ -190,6 +200,7 @@ class CameraService:
 
                     with self.lock:
                         self.annotated_frame = None
+                    self.behavior_detector.reset_person_state()
 
     def generate_frames(self):
         show_box_seconds = 1.5
@@ -322,6 +333,75 @@ class CameraService:
         finally:
             db.close()
 
+    def _process_behavior_detection(self, detection, frame, current_time: float):
+        try:
+            anomaly = self.behavior_detector.process_person_bbox(
+                bbox=detection.get("bbox"),
+                frame_shape=frame.shape,
+                confidence=detection.get("confidence", 0.0),
+                frame=frame,
+                now=current_time,
+            )
+
+            if anomaly is None:
+                return
+
+            self._record_behavior_event(
+                event_type=anomaly.event_type,
+                confidence_score=anomaly.confidence_score,
+                frame=frame,
+                reason=anomaly.reason,
+            )
+
+        except Exception as e:
+            print(f"⚠️ Behavior detection skipped: {e}")
+
+    def _record_behavior_event(
+        self,
+        *,
+        event_type: str,
+        confidence_score: float,
+        frame,
+        reason: str,
+    ):
+        db = SessionLocal()
+
+        try:
+            premise_id = self._resolve_premise_id(db)
+
+            if premise_id is None:
+                print("⚠️ Behavior event skipped: no premise configured or found.")
+                return None
+
+            image_path = self._save_alert_snapshot(frame, event_type)
+
+            if image_path is None:
+                print("⚠️ Behavior event skipped: snapshot could not be saved.")
+                return None
+
+            event = create_ai_event(
+                db,
+                premise_id=premise_id,
+                event_type=event_type,
+                confidence_score=confidence_score,
+                image_path=image_path,
+                is_acknowledged=False,
+            )
+
+            print(
+                "🚨 Behavior AI event saved: "
+                f"id={event.id} type={event_type} reason={reason}"
+            )
+            return event
+
+        except Exception as e:
+            db.rollback()
+            print(f"❌ Failed to save behavior AI event: {e}")
+            return None
+
+        finally:
+            db.close()
+
     def _should_evaluate_snapshot(self, current_time: float) -> bool:
         elapsed = current_time - self.last_snapshot_evaluation_time
         return elapsed >= self.snapshot_evaluation_interval_seconds
@@ -406,6 +486,7 @@ class CameraService:
         best_detection = {
             "confidence": 0.0,
             "quality_score": 0.0,
+            "bbox": None,
         }
 
         for box in result.boxes:
@@ -432,6 +513,7 @@ class CameraService:
                 best_detection = {
                     "confidence": confidence,
                     "quality_score": quality_score,
+                    "bbox": (x1, y1, x2, y2),
                 }
 
         return best_detection
@@ -445,10 +527,13 @@ class CameraService:
         return min(variance / 1000, 1.0)
 
     def _save_unknown_person_snapshot(self, frame):
+        return self._save_alert_snapshot(frame, "unknown_person")
+
+    def _save_alert_snapshot(self, frame, event_type: str):
         ALERT_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"unknown_person_{timestamp}.jpg"
+        filename = f"{event_type}_{timestamp}.jpg"
         file_path = ALERT_STORAGE_DIR / filename
 
         saved = cv2.imwrite(str(file_path), frame)

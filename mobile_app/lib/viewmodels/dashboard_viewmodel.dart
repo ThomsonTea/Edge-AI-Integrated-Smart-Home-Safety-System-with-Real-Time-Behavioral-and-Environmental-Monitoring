@@ -34,6 +34,11 @@ class DashboardViewModel extends ChangeNotifier {
     DashboardFilterOption(value: 'fire_alert', label: 'Fire Alert'),
     DashboardFilterOption(value: 'gas_alert', label: 'Gas Alert'),
     DashboardFilterOption(value: 'system_error', label: 'System Error'),
+    DashboardFilterOption(value: 'fall_detected', label: 'Fall Detected'),
+    DashboardFilterOption(
+      value: 'prolonged_inactivity',
+      label: 'Prolonged Inactivity',
+    ),
   ];
 
   DashboardSummary _summary = DashboardSummary.empty();

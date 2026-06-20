@@ -18,6 +18,7 @@ PyJWT==2.8.0
 # --- Computer Vision & AI (Smart Home Security) ---
 ultralytics==8.4.41
 opencv-python==4.13.0.92
+mediapipe==0.10.21
 torch==2.11.0
 torchvision==0.26.0
 numpy==2.2.6

@@ -1,4 +1,5 @@
 import asyncio
+import os
 import unittest
 from datetime import datetime
 from types import SimpleNamespace
@@ -18,6 +19,11 @@ from app.services.profile_service import ProfileService
 from app.services.face_service import FACE_LOGIN_THRESHOLD
 from app.services.ai_event_service import create_ai_event
 from app.services import notification_service
+from app.services.behavioral_anomaly_service import (
+    BehavioralAnomalyConfig,
+    BehavioralAnomalyService,
+    PoseSummary,
+)
 from app.services.notification_connection_manager import (
     NotificationConnectionManager,
 )
@@ -272,6 +278,268 @@ class NotificationWebSocketTests(unittest.TestCase):
             notification_service.priority_for_event_type("blacklisted_person"),
             "Critical",
         )
+
+    def test_behavior_emergency_events_are_critical_priority(self):
+        self.assertEqual(
+            notification_service.priority_for_event_type("fall_detected"),
+            "Critical",
+        )
+        self.assertEqual(
+            notification_service.priority_for_event_type("prolonged_inactivity"),
+            "Critical",
+        )
+
+    def test_behavior_detector_confirms_fall_after_confirmation_time(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                fall_confirm_seconds=4,
+                inactivity_seconds=60,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        frame_shape = (100, 100, 3)
+        horizontal_bbox = (10, 40, 90, 70)
+
+        self.assertIsNone(
+            detector.process_person_bbox(
+                bbox=horizontal_bbox,
+                frame_shape=frame_shape,
+                confidence=0.8,
+                now=0,
+            )
+        )
+
+        result = detector.process_person_bbox(
+            bbox=horizontal_bbox,
+            frame_shape=frame_shape,
+            confidence=0.8,
+            now=4.1,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "fall_detected")
+        self.assertEqual(result.confidence_score, 80.0)
+
+    def test_behavior_detector_confirms_inactivity_after_threshold(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                fall_confirm_seconds=4,
+                inactivity_seconds=10,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        frame_shape = (100, 100, 3)
+        upright_bbox = (40, 10, 60, 90)
+
+        self.assertIsNone(
+            detector.process_person_bbox(
+                bbox=upright_bbox,
+                frame_shape=frame_shape,
+                confidence=0.75,
+                now=0,
+            )
+        )
+
+        result = detector.process_person_bbox(
+            bbox=upright_bbox,
+            frame_shape=frame_shape,
+            confidence=0.75,
+            now=10.1,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "prolonged_inactivity")
+        self.assertEqual(result.confidence_score, 75.0)
+
+    def test_behavior_detector_prevents_duplicate_active_anomaly(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                fall_confirm_seconds=1,
+                inactivity_seconds=60,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        frame_shape = (100, 100, 3)
+        horizontal_bbox = (10, 40, 90, 70)
+
+        detector.process_person_bbox(
+            bbox=horizontal_bbox,
+            frame_shape=frame_shape,
+            confidence=0.8,
+            now=0,
+        )
+
+        first_result = detector.process_person_bbox(
+            bbox=horizontal_bbox,
+            frame_shape=frame_shape,
+            confidence=0.8,
+            now=1.1,
+        )
+        duplicate_result = detector.process_person_bbox(
+            bbox=horizontal_bbox,
+            frame_shape=frame_shape,
+            confidence=0.8,
+            now=2.0,
+        )
+
+        self.assertIsNotNone(first_result)
+        self.assertIsNone(duplicate_result)
+
+    def test_behavior_detector_defaults_mediapipe_pose_off(self):
+        with patch.dict(os.environ, {}, clear=True):
+            config = BehavioralAnomalyConfig()
+
+        self.assertFalse(config.enable_mediapipe_pose)
+
+    def test_behavior_detector_falls_back_when_mediapipe_import_fails(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                pose_process_every_n_frames=1,
+                pose_min_interval_seconds=0,
+                fall_confirm_seconds=1,
+                inactivity_seconds=60,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        frame_shape = (100, 100, 3)
+        horizontal_bbox = (10, 40, 90, 70)
+
+        with patch(
+            "app.services.behavioral_anomaly_service.import_module",
+            side_effect=ImportError("missing mediapipe"),
+        ):
+            detector.process_person_bbox(
+                bbox=horizontal_bbox,
+                frame_shape=frame_shape,
+                confidence=0.8,
+                frame=object(),
+                now=0,
+            )
+            result = detector.process_person_bbox(
+                bbox=horizontal_bbox,
+                frame_shape=frame_shape,
+                confidence=0.8,
+                frame=object(),
+                now=1.1,
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "fall_detected")
+
+    def test_behavior_detector_falls_back_when_mediapipe_solutions_missing(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                pose_process_every_n_frames=1,
+                pose_min_interval_seconds=0,
+                fall_confirm_seconds=1,
+                inactivity_seconds=60,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        fake_mediapipe = SimpleNamespace(__version__="0.0-test")
+        frame_shape = (100, 100, 3)
+        horizontal_bbox = (10, 40, 90, 70)
+
+        with patch(
+            "app.services.behavioral_anomaly_service.import_module",
+            return_value=fake_mediapipe,
+        ):
+            detector.process_person_bbox(
+                bbox=horizontal_bbox,
+                frame_shape=frame_shape,
+                confidence=0.8,
+                frame=object(),
+                now=0,
+            )
+            result = detector.process_person_bbox(
+                bbox=horizontal_bbox,
+                frame_shape=frame_shape,
+                confidence=0.8,
+                frame=object(),
+                now=1.1,
+            )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "fall_detected")
+
+    def test_pose_summary_confirms_fall_after_confirmation_time(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                fall_confirm_seconds=2,
+                inactivity_seconds=60,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        fallen_pose = PoseSummary(
+            body_center=(0.5, 0.7),
+            nose_y=0.66,
+            shoulder_y=0.7,
+            hip_y=0.72,
+            torso_angle_degrees=10,
+            visibility_score=0.9,
+        )
+
+        self.assertIsNone(
+            detector._process_pose_summary(
+                summary=fallen_pose,
+                confidence=0.9,
+                current_time=0,
+            )
+        )
+
+        result = detector._process_pose_summary(
+            summary=fallen_pose,
+            confidence=0.9,
+            current_time=2.1,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "fall_detected")
+
+    def test_pose_summary_confirms_inactivity_after_threshold(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                fall_confirm_seconds=2,
+                inactivity_seconds=10,
+                emergency_cooldown_seconds=120,
+            )
+        )
+        upright_pose = PoseSummary(
+            body_center=(0.5, 0.42),
+            nose_y=0.18,
+            shoulder_y=0.34,
+            hip_y=0.56,
+            torso_angle_degrees=88,
+            visibility_score=0.9,
+        )
+
+        self.assertIsNone(
+            detector._process_pose_summary(
+                summary=upright_pose,
+                confidence=0.85,
+                current_time=0,
+            )
+        )
+
+        result = detector._process_pose_summary(
+            summary=upright_pose,
+            confidence=0.85,
+            current_time=10.1,
+        )
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result.event_type, "prolonged_inactivity")
 
     def test_notification_payload_includes_profile_and_confidence(self):
         event = SimpleNamespace(

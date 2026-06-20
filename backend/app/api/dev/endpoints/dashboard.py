@@ -21,6 +21,8 @@ EVENT_TYPE_FILTERS = {
     "fire_alert",
     "gas_alert",
     "system_error",
+    "fall_detected",
+    "prolonged_inactivity",
 }
 CRITICAL_EVENT_TYPES = {
     "unknown_person",
@@ -29,6 +31,8 @@ CRITICAL_EVENT_TYPES = {
     "gas_alert",
     "system_error",
     "camera_offline",
+    "fall_detected",
+    "prolonged_inactivity",
 }
 
 

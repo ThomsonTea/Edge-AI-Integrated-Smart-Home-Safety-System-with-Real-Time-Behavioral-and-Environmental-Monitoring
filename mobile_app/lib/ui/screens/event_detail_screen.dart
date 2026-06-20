@@ -161,6 +161,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       'sensor_alert' => Icons.sensors,
       'system_error' => Icons.error_outline,
       'fall_detected' => Icons.emergency,
+      'prolonged_inactivity' => Icons.personal_injury,
       'camera_offline' => Icons.videocam_off,
       _ => Icons.notifications,
     };
@@ -176,6 +177,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       'sensor_alert' => _dangerColor(context),
       'system_error' => _dangerColor(context),
       'fall_detected' => _dangerColor(context),
+      'prolonged_inactivity' => _dangerColor(context),
       'camera_offline' => _warningColor(context),
       _ => Theme.of(context).colorScheme.primary,
     };
