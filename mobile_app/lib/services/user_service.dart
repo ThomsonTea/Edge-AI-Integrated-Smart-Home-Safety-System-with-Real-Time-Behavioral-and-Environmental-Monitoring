@@ -46,7 +46,7 @@ class UserService {
   Future<void> registerUser(RegisterUserRequest request) async {
     final response = await _client.post(
       Uri.parse('$baseUrl/profile/register'),
-      headers: await _authorizedHeaders(requireToken: false),
+      headers: await _authorizedHeaders(),
       body: jsonEncode(request.toJson()),
     );
 

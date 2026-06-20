@@ -12,6 +12,7 @@ class UserProfile {
   final bool faceRegistered;
   final DateTime? lastSeen;
   final bool isBlacklisted;
+  final bool isPrimaryOwner;
 
   const UserProfile({
     required this.id,
@@ -25,6 +26,7 @@ class UserProfile {
     required this.faceRegistered,
     this.lastSeen,
     required this.isBlacklisted,
+    this.isPrimaryOwner = false,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -43,7 +45,23 @@ class UserProfile {
       faceRegistered: json['face_registered'] == true,
       lastSeen: DateTime.tryParse(json['last_seen']?.toString() ?? ''),
       isBlacklisted: json['is_blacklisted'] == true,
+      isPrimaryOwner: json['is_primary_owner'] == true,
     );
+  }
+
+  String get normalizedRole {
+    final value = role.trim().toLowerCase().replaceAll('-', '_');
+
+    return switch (value) {
+      'owner' || 'admin' || 'administrator' => 'owner',
+      'manager' || 'operator' => 'manager',
+      'normal_user' ||
+      'normal user' ||
+      'member' ||
+      'guest' ||
+      'resident' => 'normal_user',
+      _ => value,
+    };
   }
 
   String? get profileImageUrl {

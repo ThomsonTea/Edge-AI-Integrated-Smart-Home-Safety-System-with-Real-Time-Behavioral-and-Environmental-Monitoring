@@ -33,6 +33,16 @@ class TokenService {
     return payload?['user_id']?.toString();
   }
 
+  Future<String?> getCurrentUserRole() async {
+    final token = await getToken();
+    if (token == null || token.isEmpty || token == 'null') {
+      return null;
+    }
+
+    final payload = _decodeJwtPayload(token);
+    return payload?['role']?.toString();
+  }
+
   Map<String, dynamic>? _decodeJwtPayload(String token) {
     final parts = token.split('.');
     if (parts.length != 3) {

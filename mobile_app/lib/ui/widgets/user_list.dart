@@ -45,6 +45,7 @@ class UserList extends StatelessWidget {
       itemBuilder: (context, index) {
         final user = users[index];
         final deleting = isDeleting(userId: user.id);
+        final isProtectedOwner = user.isOwner;
 
         return Card(
           child: Padding(
@@ -69,6 +70,10 @@ class UserList extends StatelessWidget {
                         user.name,
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
+                      if (isProtectedOwner) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        _PrimaryOwnerBadge(),
+                      ],
                       const SizedBox(height: AppSpacing.xs),
                       Text(
                         _subtitleFor(user),
@@ -78,9 +83,13 @@ class UserList extends StatelessWidget {
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Delete user',
+                  tooltip: isProtectedOwner
+                      ? 'Primary Owner is protected'
+                      : 'Delete user',
                   color: Theme.of(context).colorScheme.error,
-                  onPressed: deleting ? null : () => onDelete(id: user.id),
+                  onPressed: deleting || isProtectedOwner
+                      ? null
+                      : () => onDelete(id: user.id),
                   icon: deleting
                       ? const SizedBox(
                           width: AppSpacing.xl,
@@ -99,12 +108,50 @@ class UserList extends StatelessWidget {
 
   String _subtitleFor(User user) {
     final parts = <String>[
-      user.role,
+      user.roleLabel,
       if (user.email.isNotEmpty) user.email,
       if (user.phoneNumber != null && user.phoneNumber!.isNotEmpty)
         user.phoneNumber!,
     ];
 
     return parts.where((part) => part.isNotEmpty).join(' - ');
+  }
+}
+
+class _PrimaryOwnerBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(AppSpacing.chipRadius),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.verified_user_outlined,
+              size: AppSpacing.lg,
+              color: colorScheme.onPrimaryContainer,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'Primary Owner',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

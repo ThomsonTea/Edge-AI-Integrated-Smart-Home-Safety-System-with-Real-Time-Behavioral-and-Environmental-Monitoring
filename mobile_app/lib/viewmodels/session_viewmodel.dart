@@ -7,6 +7,7 @@ class SessionViewModel extends ChangeNotifier {
   final NotificationWebSocketService _notificationWebSocketService;
   final TokenService _tokenService;
   bool _isAuthExpired = false;
+  String? _currentUserRole;
 
   SessionViewModel({
     NotificationWebSocketService? notificationWebSocketService,
@@ -17,11 +18,16 @@ class SessionViewModel extends ChangeNotifier {
        _tokenService = tokenService ?? TokenService();
 
   bool get isAuthExpired => _isAuthExpired;
+  String? get currentUserRole => _currentUserRole;
+  bool get canManageUsers =>
+      _currentUserRole == 'owner' || _currentUserRole == 'manager';
 
   Future<void> startSession() async {
     _isAuthExpired = false;
+    _currentUserRole = _normalizeRole(await _tokenService.getCurrentUserRole());
     _notificationWebSocketService.setAuthFailureHandler(_handleAuthFailure);
     await _notificationWebSocketService.start();
+    notifyListeners();
   }
 
   void disposeSession() {
@@ -38,5 +44,21 @@ class SessionViewModel extends ChangeNotifier {
     await _tokenService.deleteToken();
     _isAuthExpired = true;
     notifyListeners();
+  }
+
+  String? _normalizeRole(String? role) {
+    final value = role?.trim().toLowerCase().replaceAll('-', '_');
+    if (value == null || value.isEmpty) return null;
+
+    return switch (value) {
+      'owner' || 'admin' || 'administrator' => 'owner',
+      'manager' || 'operator' => 'manager',
+      'normal_user' ||
+      'normal user' ||
+      'member' ||
+      'guest' ||
+      'resident' => 'normal_user',
+      _ => value,
+    };
   }
 }

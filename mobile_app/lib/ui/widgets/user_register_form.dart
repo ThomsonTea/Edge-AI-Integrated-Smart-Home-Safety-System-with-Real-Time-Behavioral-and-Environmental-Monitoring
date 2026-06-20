@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_spacing.dart';
+import '../../viewmodels/user_access_viewmodel.dart';
 
 class UserRegisterForm extends StatefulWidget {
   final bool isSubmitting;
+  final List<UserRoleOption> roleOptions;
   final Future<void> Function({
     required String username,
     required String email,
@@ -16,6 +18,7 @@ class UserRegisterForm extends StatefulWidget {
   const UserRegisterForm({
     super.key,
     required this.isSubmitting,
+    required this.roleOptions,
     required this.onSubmit,
   });
 
@@ -34,9 +37,7 @@ class UserRegisterFormState extends State<UserRegisterForm> {
 
   final TextEditingController passwordController = TextEditingController();
 
-  String selectedRole = 'Member';
-
-  final List<String> roles = ['Admin', 'Operator', 'Member', 'Guest'];
+  String? selectedRole;
 
   @override
   void dispose() {
@@ -49,13 +50,15 @@ class UserRegisterFormState extends State<UserRegisterForm> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final role = selectedRole;
+    if (role == null) return;
 
     await widget.onSubmit(
       username: nameController.text.trim(),
       email: emailController.text.trim(),
       phoneNumber: phoneController.text.trim(),
       password: passwordController.text.trim(),
-      role: selectedRole,
+      role: role,
     );
   }
 
@@ -66,12 +69,32 @@ class UserRegisterFormState extends State<UserRegisterForm> {
     passwordController.clear();
 
     setState(() {
-      selectedRole = 'Member';
+      selectedRole = widget.roleOptions.isEmpty
+          ? null
+          : widget.roleOptions.first.value;
     });
   }
 
   @override
+  void didUpdateWidget(covariant UserRegisterForm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.roleOptions.isEmpty) {
+      selectedRole = null;
+      return;
+    }
+
+    final allowedValues = widget.roleOptions.map((option) => option.value);
+    if (selectedRole == null || !allowedValues.contains(selectedRole)) {
+      selectedRole = widget.roleOptions.first.value;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final roleOptions = widget.roleOptions;
+    selectedRole ??= roleOptions.isEmpty ? null : roleOptions.first.value;
+
     return Card(
       margin: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -185,8 +208,11 @@ class UserRegisterFormState extends State<UserRegisterForm> {
                   labelText: 'Role',
                   prefixIcon: Icon(Icons.security),
                 ),
-                items: roles.map((role) {
-                  return DropdownMenuItem(value: role, child: Text(role));
+                items: roleOptions.map((option) {
+                  return DropdownMenuItem(
+                    value: option.value,
+                    child: Text(option.label),
+                  );
                 }).toList(),
                 onChanged: (value) {
                   if (value == null) return;

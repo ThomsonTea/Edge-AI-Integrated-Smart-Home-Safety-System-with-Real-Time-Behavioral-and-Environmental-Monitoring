@@ -36,7 +36,11 @@ class _BottomNavShellState extends State<BottomNavShell> {
   }
 
   void _onSessionUpdate() {
-    if (!mounted || !_sessionViewModel.isAuthExpired) return;
+    if (!mounted) return;
+
+    setState(() {});
+
+    if (!_sessionViewModel.isAuthExpired) return;
 
     Navigator.pushNamedAndRemoveUntil(
       context,
@@ -71,6 +75,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
       DashboardScreen(
         onViewCamera: () => _openTab(2),
         onViewAlerts: () => _openTab(1),
+        canManageUsers: _sessionViewModel.canManageUsers,
       ),
       const NotificationCenterScreen(),
       const CameraFeedScreen(),
@@ -78,7 +83,10 @@ class _BottomNavShellState extends State<BottomNavShell> {
     ];
 
     return Scaffold(
-      drawer: AppDrawer(onLogout: _handleLogout),
+      drawer: AppDrawer(
+        onLogout: _handleLogout,
+        canManageUsers: _sessionViewModel.canManageUsers,
+      ),
 
       appBar: AppBar(
         title: const Text("Smart Security System"),

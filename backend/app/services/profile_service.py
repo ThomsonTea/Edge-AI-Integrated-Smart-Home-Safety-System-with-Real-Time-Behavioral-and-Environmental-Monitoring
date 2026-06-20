@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.profile import Profile
 from app.services.face_service import FaceRegistrationError, FaceService
-from app.services.user_service import UserService
+from app.services.user_service import UserService, is_owner, normalize_role
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 PROFILE_PICTURE_DIR = BASE_DIR / "storage" / "profile_pictures"
@@ -48,14 +48,15 @@ class ProfileService:
             "username": profile.username,
             "email": profile.email,
             "phone_number": profile.phone_number,
-            "group_type": profile.group_type,
-            "role": profile.group_type,
+            "group_type": normalize_role(profile.group_type),
+            "role": normalize_role(profile.group_type),
             "premise_id": profile.premise_id,
             "premise_name": premise.name if premise is not None else None,
             "profile_image_path": profile.profile_image_path,
             "face_registered": bool(profile.face_signature),
             "last_seen": profile.last_seen,
             "is_blacklisted": bool(profile.is_blacklisted),
+            "is_primary_owner": is_owner(profile),
         }
 
     def update_current_profile(

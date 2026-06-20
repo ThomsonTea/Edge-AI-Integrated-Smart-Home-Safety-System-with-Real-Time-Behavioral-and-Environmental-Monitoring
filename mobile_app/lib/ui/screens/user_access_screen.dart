@@ -97,23 +97,28 @@ class _UserAccessScreenState extends State<UserAccessScreen> {
                           ],
                         ),
                       ),
-                      _RegisterFormHost(viewModel: vm),
-                      const SizedBox(height: AppSpacing.sm),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            AppSpacing.lg,
-                            0,
-                            AppSpacing.lg,
-                            AppSpacing.lg,
-                          ),
-                          child: UserList(
-                            users: vm.users,
-                            isDeleting: vm.isDeleting,
-                            onDelete: vm.deleteUser,
+                      if (!vm.canManageUsers)
+                        const Expanded(child: _AccessDeniedState())
+                      else ...[
+                        if (vm.roleOptions.isNotEmpty)
+                          _RegisterFormHost(viewModel: vm),
+                        const SizedBox(height: AppSpacing.sm),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.lg,
+                              0,
+                              AppSpacing.lg,
+                              AppSpacing.lg,
+                            ),
+                            child: UserList(
+                              users: vm.users,
+                              isDeleting: vm.isDeleting,
+                              onDelete: vm.deleteUser,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -141,6 +146,7 @@ class _RegisterFormHostState extends State<_RegisterFormHost> {
     return UserRegisterForm(
       key: _formKey,
       isSubmitting: widget.viewModel.isSubmitting,
+      roleOptions: widget.viewModel.roleOptions,
       onSubmit:
           ({
             required String username,
@@ -161,6 +167,45 @@ class _RegisterFormHostState extends State<_RegisterFormHost> {
               _formKey.currentState?.reset();
             }
           },
+    );
+  }
+}
+
+class _AccessDeniedState extends StatelessWidget {
+  const _AccessDeniedState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'User management access denied',
+                  style: Theme.of(context).textTheme.titleMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Only Owner and Manager accounts can manage users.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

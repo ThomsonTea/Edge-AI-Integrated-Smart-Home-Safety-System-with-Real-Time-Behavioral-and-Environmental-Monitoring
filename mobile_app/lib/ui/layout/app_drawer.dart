@@ -4,8 +4,13 @@ import '../../theme/app_spacing.dart';
 
 class AppDrawer extends StatelessWidget {
   final Future<void> Function() onLogout;
+  final bool canManageUsers;
 
-  const AppDrawer({super.key, required this.onLogout});
+  const AppDrawer({
+    super.key,
+    required this.onLogout,
+    this.canManageUsers = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -59,14 +64,15 @@ class AppDrawer extends StatelessWidget {
           const Divider(),
 
           const _DrawerSectionTitle("System Management"),
-          _DrawerItem(
-            icon: Icons.group,
-            label: "User Access Management",
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.userAccess);
-            },
-          ),
+          if (canManageUsers)
+            _DrawerItem(
+              icon: Icons.group,
+              label: "User Access Management",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.userAccess);
+              },
+            ),
 
           _DrawerItem(
             icon: Icons.face_retouching_natural,

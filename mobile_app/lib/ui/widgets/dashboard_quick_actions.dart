@@ -5,14 +5,14 @@ import '../../theme/app_spacing.dart';
 class DashboardQuickActions extends StatelessWidget {
   final VoidCallback onViewCamera;
   final VoidCallback onViewEventHistory;
-  final VoidCallback onUserAccessManagement;
+  final VoidCallback? onUserAccessManagement;
   final VoidCallback onAiSettings;
 
   const DashboardQuickActions({
     super.key,
     required this.onViewCamera,
     required this.onViewEventHistory,
-    required this.onUserAccessManagement,
+    this.onUserAccessManagement,
     required this.onAiSettings,
   });
 
@@ -41,12 +41,14 @@ class DashboardQuickActions extends StatelessWidget {
               onPressed: onViewEventHistory,
             ),
             const SizedBox(height: AppSpacing.sm),
-            _ActionButton(
-              icon: Icons.manage_accounts,
-              label: 'User Access Management',
-              onPressed: onUserAccessManagement,
-            ),
-            const SizedBox(height: AppSpacing.sm),
+            if (onUserAccessManagement != null) ...[
+              _ActionButton(
+                icon: Icons.manage_accounts,
+                label: 'User Access Management',
+                onPressed: onUserAccessManagement!,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
             _ActionButton(
               icon: Icons.settings_suggest,
               label: 'AI Settings',

@@ -19,6 +19,13 @@ from app.services.profile_service import ProfileService
 from app.services.face_service import FACE_LOGIN_THRESHOLD
 from app.services.ai_event_service import create_ai_event
 from app.services import notification_service
+from app.services.user_service import (
+    MANAGER_ROLE,
+    NORMAL_USER_ROLE,
+    OWNER_ROLE,
+    UserService,
+    normalize_role,
+)
 from app.services.behavioral_anomaly_service import (
     BehavioralAnomalyConfig,
     BehavioralAnomalyService,
@@ -89,7 +96,7 @@ class NotificationWebSocketTests(unittest.TestCase):
         response = ProfileService(None).profile_response(profile)
 
         self.assertTrue(response["face_registered"])
-        self.assertEqual(response["role"], "Resident")
+        self.assertEqual(response["role"], "normal_user")
         self.assertEqual(response["premise_name"], "Default Home")
 
     def test_profile_update_rejects_duplicate_username(self):
@@ -156,6 +163,182 @@ class NotificationWebSocketTests(unittest.TestCase):
         self.assertEqual(profile.phone_number, "456")
         self.assertTrue(db.committed)
         self.assertTrue(db.refreshed)
+
+    def test_role_normalization_maps_legacy_roles(self):
+        self.assertEqual(normalize_role("Admin"), OWNER_ROLE)
+        self.assertEqual(normalize_role("Operator"), MANAGER_ROLE)
+        self.assertEqual(normalize_role("Member"), NORMAL_USER_ROLE)
+        self.assertEqual(normalize_role("Normal User"), NORMAL_USER_ROLE)
+
+    def test_owner_can_create_manager_in_own_premise(self):
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return None
+
+            def all(self):
+                return [SimpleNamespace(group_type="owner")]
+
+        class FakeDb:
+            def query(self, model):
+                return FakeQuery()
+
+        owner = SimpleNamespace(group_type="owner", premise_id=7)
+        role = UserService(FakeDb()).validate_user_creation(
+            current_profile=owner,
+            requested_role="manager",
+        )
+
+        self.assertEqual(role, MANAGER_ROLE)
+
+    def test_manager_can_only_create_normal_user(self):
+        class FakeQuery:
+            def all(self):
+                return [SimpleNamespace(group_type="owner")]
+
+        class FakeDb:
+            def query(self, model):
+                return FakeQuery()
+
+        manager = SimpleNamespace(group_type="manager", premise_id=7)
+        service = UserService(FakeDb())
+
+        self.assertEqual(
+            service.validate_user_creation(
+                current_profile=manager,
+                requested_role="normal_user",
+            ),
+            NORMAL_USER_ROLE,
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            service.validate_user_creation(
+                current_profile=manager,
+                requested_role="manager",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_normal_user_cannot_manage_users(self):
+        class FakeDb:
+            pass
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).validate_user_creation(
+                current_profile=SimpleNamespace(
+                    group_type="normal_user",
+                    premise_id=7,
+                ),
+                requested_role="normal_user",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_user_creation_requires_current_user_premise(self):
+        class FakeDb:
+            pass
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).validate_user_creation(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=None),
+                requested_role="normal_user",
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(
+            context.exception.detail,
+            "Current user is not assigned to a premise.",
+        )
+
+    def test_cannot_create_second_owner(self):
+        class FakeQuery:
+            def all(self):
+                return [SimpleNamespace(group_type="owner")]
+
+        class FakeDb:
+            def query(self, model):
+                return FakeQuery()
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).validate_user_creation(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                requested_role="owner",
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+
+    def test_create_user_assigns_current_user_premise(self):
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return None
+
+        class FakeDb:
+            def __init__(self):
+                self.added_user = None
+
+            def query(self, model):
+                return FakeQuery()
+
+            def add(self, user):
+                self.added_user = user
+
+            def commit(self):
+                pass
+
+            def refresh(self, user):
+                user.id = 10
+
+        db = FakeDb()
+        user = UserService(db).create_user(
+            username="newuser",
+            password="secret1",
+            email="new@example.com",
+            phone_number="123",
+            group_type="normal_user",
+            premise_id=7,
+        )
+
+        self.assertIs(db.added_user, user)
+        self.assertEqual(user.group_type, NORMAL_USER_ROLE)
+        self.assertEqual(user.premise_id, 7)
+
+    def test_owner_cannot_be_deleted(self):
+        class FakeDb:
+            pass
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).ensure_can_delete_user(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                target_profile=SimpleNamespace(group_type="owner", premise_id=7),
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_manager_cannot_delete_manager_or_cross_premise_user(self):
+        class FakeDb:
+            pass
+
+        service = UserService(FakeDb())
+
+        with self.assertRaises(HTTPException):
+            service.ensure_can_delete_user(
+                current_profile=SimpleNamespace(group_type="manager", premise_id=7),
+                target_profile=SimpleNamespace(group_type="manager", premise_id=7),
+            )
+
+        with self.assertRaises(HTTPException):
+            service.ensure_can_delete_user(
+                current_profile=SimpleNamespace(group_type="manager", premise_id=7),
+                target_profile=SimpleNamespace(
+                    group_type="normal_user",
+                    premise_id=8,
+                ),
+            )
 
     def test_change_password_requires_matching_confirmation(self):
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

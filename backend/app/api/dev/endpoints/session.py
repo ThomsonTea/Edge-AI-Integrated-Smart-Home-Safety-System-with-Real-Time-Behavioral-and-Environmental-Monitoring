@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.db import database
 from app.middleware.jwt_auth import verify_token
 from app.services.face_service import FaceLoginError, FaceRegistrationError, FaceService
-from app.services.user_service import UserService
+from app.services.user_service import UserService, normalize_role
 
 router = APIRouter()
 
@@ -15,7 +15,7 @@ def _login_response(user, token: str) -> dict:
         "user": {
             "id": user.id,
             "username": user.username,
-            "role": user.group_type,
+            "role": normalize_role(user.group_type),
         },
     }
 

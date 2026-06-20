@@ -6,6 +6,7 @@ from app.middleware.jwt_auth import verify_token
 from app.models.profile import Profile
 from app.schemas.face import FaceRegistrationResponse
 from app.services.face_service import FaceRegistrationError, FaceService
+from app.services.user_service import UserService
 
 router = APIRouter()
 
@@ -21,16 +22,6 @@ def _get_current_profile(current_user: dict, db: Session) -> Profile:
         )
 
     return profile
-
-
-def _ensure_admin(profile: Profile) -> None:
-    role = (profile.group_type or "").strip().lower()
-
-    if role != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
 
 
 def _ensure_same_premise(admin: Profile, target: Profile) -> None:
@@ -55,7 +46,7 @@ async def register_profile_face(
     current_user: dict = Depends(verify_token),
 ):
     admin = _get_current_profile(current_user=current_user, db=db)
-    _ensure_admin(admin)
+    UserService(db).require_owner_or_manager(admin)
 
     target_profile = db.query(Profile).filter(Profile.id == profile_id).first()
 

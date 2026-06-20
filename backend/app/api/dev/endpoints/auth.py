@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.db import database
 from app.schemas.user import UserLogin
-from app.services.user_service import UserService
+from app.services.user_service import UserService, normalize_role
 
 
 router = APIRouter()
@@ -39,6 +39,6 @@ def login(
         "user": {
             "id": user.id,
             "username": user.username,
-            "role": user.group_type
+            "role": normalize_role(user.group_type),
         }
     }

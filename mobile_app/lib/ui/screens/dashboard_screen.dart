@@ -15,8 +15,14 @@ import '../widgets/summary_status_card.dart';
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onViewCamera;
   final VoidCallback? onViewAlerts;
+  final bool canManageUsers;
 
-  const DashboardScreen({super.key, this.onViewCamera, this.onViewAlerts});
+  const DashboardScreen({
+    super.key,
+    this.onViewCamera,
+    this.onViewAlerts,
+    this.canManageUsers = false,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -90,8 +96,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onViewEventHistory:
                   widget.onViewAlerts ??
                   () => Navigator.of(context).pushNamed(AppRoutes.alertHistory),
-              onUserAccessManagement: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.userAccess),
+              onUserAccessManagement: widget.canManageUsers
+                  ? () => Navigator.of(context).pushNamed(AppRoutes.userAccess)
+                  : null,
               onAiSettings: () =>
                   Navigator.of(context).pushNamed(AppRoutes.aiSettings),
             ),

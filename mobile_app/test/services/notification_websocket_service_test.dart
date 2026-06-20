@@ -19,6 +19,9 @@ class FakeTokenService implements TokenService {
   Future<String?> getCurrentUserId() async => null;
 
   @override
+  Future<String?> getCurrentUserRole() async => null;
+
+  @override
   Future<bool> hasToken() async => token != null && token!.isNotEmpty;
 
   @override
