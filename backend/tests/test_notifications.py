@@ -78,6 +78,18 @@ class NotificationWebSocketTests(unittest.TestCase):
         self.assertIn("/profile/me/profile-picture", paths)
         self.assertIn("/profile/me/face", paths)
 
+    def test_user_reset_password_route_is_registered(self):
+        paths = {getattr(route, "path", None) for route in api_router.routes}
+
+        self.assertIn("/users/{user_id}/reset-password", paths)
+
+    def test_user_management_routes_are_registered(self):
+        paths = {getattr(route, "path", None) for route in api_router.routes}
+
+        self.assertIn("/users", paths)
+        self.assertIn("/users/{user_id}", paths)
+        self.assertIn("/users/{user_id}/face", paths)
+
     def test_profile_response_derives_face_registered_from_signature(self):
         profile = SimpleNamespace(
             id=1,
@@ -339,6 +351,307 @@ class NotificationWebSocketTests(unittest.TestCase):
                     premise_id=8,
                 ),
             )
+
+    def test_reset_password_owner_can_reset_manager_and_normal_user(self):
+        class FakeDb:
+            committed = False
+
+            def commit(self):
+                self.committed = True
+
+        db = FakeDb()
+        service = UserService(db)
+        owner = SimpleNamespace(group_type="owner", premise_id=7)
+        manager = SimpleNamespace(
+            group_type="manager",
+            premise_id=7,
+            hash_password="old",
+        )
+
+        service.reset_managed_user_password(
+            current_profile=owner,
+            target_profile=manager,
+            new_password="newpass",
+            confirm_password="newpass",
+        )
+
+        self.assertTrue(db.committed)
+        self.assertNotEqual(manager.hash_password, "old")
+        self.assertTrue(service.verify_password("newpass", manager.hash_password))
+
+    def test_reset_password_manager_can_reset_normal_user_only(self):
+        class FakeDb:
+            def commit(self):
+                pass
+
+        service = UserService(FakeDb())
+        manager = SimpleNamespace(group_type="manager", premise_id=7)
+        normal_user = SimpleNamespace(
+            group_type="normal_user",
+            premise_id=7,
+            hash_password="old",
+        )
+
+        service.reset_managed_user_password(
+            current_profile=manager,
+            target_profile=normal_user,
+            new_password="newpass",
+            confirm_password="newpass",
+        )
+
+        self.assertTrue(service.verify_password("newpass", normal_user.hash_password))
+
+        with self.assertRaises(HTTPException) as context:
+            service.reset_managed_user_password(
+                current_profile=manager,
+                target_profile=SimpleNamespace(
+                    group_type="manager",
+                    premise_id=7,
+                    hash_password="old",
+                ),
+                new_password="newpass",
+                confirm_password="newpass",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_reset_password_rejects_owner_target(self):
+        class FakeDb:
+            pass
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).reset_managed_user_password(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                target_profile=SimpleNamespace(
+                    group_type="owner",
+                    premise_id=7,
+                    hash_password="old",
+                ),
+                new_password="newpass",
+                confirm_password="newpass",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_reset_password_validates_password_rules(self):
+        class FakeDb:
+            pass
+
+        service = UserService(FakeDb())
+        owner = SimpleNamespace(group_type="owner", premise_id=7)
+        target = SimpleNamespace(
+            group_type="normal_user",
+            premise_id=7,
+            hash_password="old",
+        )
+
+        with self.assertRaises(HTTPException) as short_context:
+            service.reset_managed_user_password(
+                current_profile=owner,
+                target_profile=target,
+                new_password="123",
+                confirm_password="123",
+            )
+
+        self.assertEqual(short_context.exception.status_code, 400)
+
+        with self.assertRaises(HTTPException) as mismatch_context:
+            service.reset_managed_user_password(
+                current_profile=owner,
+                target_profile=target,
+                new_password="newpass",
+                confirm_password="different",
+            )
+
+        self.assertEqual(mismatch_context.exception.status_code, 400)
+
+    def test_owner_can_update_manager_and_normal_user_roles(self):
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return None
+
+        class FakeDb:
+            committed = False
+            refreshed = False
+
+            def query(self, model):
+                return FakeQuery()
+
+            def commit(self):
+                self.committed = True
+
+            def refresh(self, profile):
+                self.refreshed = True
+
+        db = FakeDb()
+        target = SimpleNamespace(
+            id=2,
+            username="manager",
+            email="manager@example.com",
+            phone_number="123",
+            group_type="manager",
+            premise_id=7,
+        )
+
+        updated = UserService(db).update_managed_user(
+            current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+            target_profile=target,
+            username="member",
+            email="member@example.com",
+            phone_number="456",
+            group_type="normal_user",
+        )
+
+        self.assertIs(updated, target)
+        self.assertEqual(target.username, "member")
+        self.assertEqual(target.group_type, NORMAL_USER_ROLE)
+        self.assertTrue(db.committed)
+        self.assertTrue(db.refreshed)
+
+    def test_managed_user_update_rejects_duplicate_username(self):
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return SimpleNamespace(id=99, username="taken")
+
+        class FakeDb:
+            def query(self, model):
+                return FakeQuery()
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).update_managed_user(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                target_profile=SimpleNamespace(
+                    id=2,
+                    username="old",
+                    email="old@example.com",
+                    phone_number="123",
+                    group_type="normal_user",
+                    premise_id=7,
+                ),
+                username="taken",
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+
+    def test_manager_cannot_promote_normal_user(self):
+        class FakeDb:
+            pass
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).validate_managed_user_role_update(
+                current_profile=SimpleNamespace(group_type="manager", premise_id=7),
+                target_profile=SimpleNamespace(group_type="normal_user", premise_id=7),
+                requested_role="manager",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+
+    def test_owner_cannot_be_edited_or_managed_for_face(self):
+        class FakeDb:
+            pass
+
+        service = UserService(FakeDb())
+
+        with self.assertRaises(HTTPException) as edit_context:
+            service.update_managed_user(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                target_profile=SimpleNamespace(
+                    id=1,
+                    username="owner",
+                    email="owner@example.com",
+                    phone_number="123",
+                    group_type="owner",
+                    premise_id=7,
+                ),
+                username="newowner",
+            )
+
+        self.assertEqual(edit_context.exception.status_code, 403)
+
+        with self.assertRaises(HTTPException) as face_context:
+            service.ensure_can_manage_user(
+                current_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                target_profile=SimpleNamespace(group_type="owner", premise_id=7),
+                owner_message="Owner face cannot be registered from User Management.",
+            )
+
+        self.assertEqual(face_context.exception.status_code, 403)
+
+    def test_self_update_allows_basic_fields_for_owner(self):
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return None
+
+        class FakeDb:
+            committed = False
+            refreshed = False
+
+            def query(self, model):
+                return FakeQuery()
+
+            def commit(self):
+                self.committed = True
+
+            def refresh(self, profile):
+                self.refreshed = True
+
+        db = FakeDb()
+        owner = SimpleNamespace(
+            id=1,
+            username="owner",
+            email="owner@example.com",
+            phone_number="123",
+            group_type="owner",
+            premise_id=7,
+        )
+
+        updated = UserService(db).update_managed_user(
+            current_profile=owner,
+            target_profile=owner,
+            username="owner_new",
+            email="new@example.com",
+            phone_number="456",
+            group_type=None,
+        )
+
+        self.assertIs(updated, owner)
+        self.assertEqual(owner.username, "owner_new")
+        self.assertEqual(owner.email, "new@example.com")
+        self.assertEqual(owner.phone_number, "456")
+        self.assertEqual(owner.group_type, OWNER_ROLE)
+        self.assertTrue(db.committed)
+        self.assertTrue(db.refreshed)
+
+    def test_self_update_rejects_role_change(self):
+        class FakeDb:
+            pass
+
+        current = SimpleNamespace(
+            id=2,
+            username="manager",
+            email="manager@example.com",
+            phone_number="123",
+            group_type="manager",
+            premise_id=7,
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            UserService(FakeDb()).update_managed_user(
+                current_profile=current,
+                target_profile=current,
+                group_type="normal_user",
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
 
     def test_change_password_requires_matching_confirmation(self):
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

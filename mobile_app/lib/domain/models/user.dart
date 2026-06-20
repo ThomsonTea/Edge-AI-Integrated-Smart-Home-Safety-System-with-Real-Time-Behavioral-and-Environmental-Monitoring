@@ -4,6 +4,8 @@ class User {
   final String email;
   final String role;
   final String? phoneNumber;
+  final int? premiseId;
+  final bool faceRegistered;
   final bool isPrimaryOwner;
 
   User({
@@ -12,6 +14,8 @@ class User {
     required this.email,
     required this.role,
     this.phoneNumber,
+    this.premiseId,
+    this.faceRegistered = false,
     this.isPrimaryOwner = false,
   });
 
@@ -26,6 +30,9 @@ class User {
       email: json['email']?.toString() ?? '',
       role: json['group_type']?.toString() ?? json['role']?.toString() ?? '',
       phoneNumber: json['phone_number']?.toString(),
+      premiseId: _parseInt(json['premise_id']),
+      faceRegistered:
+          json['face_registered'] == true || json['has_face_signature'] == true,
       isPrimaryOwner: json['is_primary_owner'] == true,
     );
   }
@@ -55,4 +62,9 @@ class User {
   }
 
   bool get isOwner => normalizedRole == 'owner' || isPrimaryOwner;
+
+  static int? _parseInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '');
+  }
 }

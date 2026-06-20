@@ -24,17 +24,6 @@ def _get_current_profile(current_user: dict, db: Session) -> Profile:
     return profile
 
 
-def _ensure_same_premise(admin: Profile, target: Profile) -> None:
-    if admin.premise_id is None or target.premise_id is None:
-        return
-
-    if admin.premise_id != target.premise_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Cannot register a face for a profile in another premise",
-        )
-
-
 @router.post(
     "/profiles/{profile_id}/face",
     response_model=FaceRegistrationResponse,
@@ -46,7 +35,8 @@ async def register_profile_face(
     current_user: dict = Depends(verify_token),
 ):
     admin = _get_current_profile(current_user=current_user, db=db)
-    UserService(db).require_owner_or_manager(admin)
+    user_service = UserService(db)
+    user_service.require_owner_or_manager(admin)
 
     target_profile = db.query(Profile).filter(Profile.id == profile_id).first()
 
@@ -56,7 +46,11 @@ async def register_profile_face(
             detail="Profile not found",
         )
 
-    _ensure_same_premise(admin=admin, target=target_profile)
+    user_service.ensure_can_manage_user(
+        current_profile=admin,
+        target_profile=target_profile,
+        owner_message="Owner face cannot be registered from User Management.",
+    )
 
     image_bytes = await image.read()
     service = FaceService(db)

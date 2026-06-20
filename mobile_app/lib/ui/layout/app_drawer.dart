@@ -75,15 +75,6 @@ class AppDrawer extends StatelessWidget {
             ),
 
           _DrawerItem(
-            icon: Icons.face_retouching_natural,
-            label: "Face Registration",
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.faceRegistration);
-            },
-          ),
-
-          _DrawerItem(
             icon: Icons.settings,
             label: "Camera Configuration",
             onTap: () {},

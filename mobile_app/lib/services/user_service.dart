@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -22,7 +23,7 @@ class UserService {
 
   Future<List<User>> fetchUsers() async {
     final response = await _client.get(
-      Uri.parse('$baseUrl/profile/profiles'),
+      Uri.parse('$baseUrl/users'),
       headers: await _authorizedHeaders(),
     );
 
@@ -45,7 +46,7 @@ class UserService {
 
   Future<void> registerUser(RegisterUserRequest request) async {
     final response = await _client.post(
-      Uri.parse('$baseUrl/profile/register'),
+      Uri.parse('$baseUrl/users'),
       headers: await _authorizedHeaders(),
       body: jsonEncode(request.toJson()),
     );
@@ -59,13 +60,88 @@ class UserService {
 
   Future<void> deleteUser({required String id}) async {
     final response = await _client.delete(
-      Uri.parse('$baseUrl/profile/profiles/$id'),
+      Uri.parse('$baseUrl/users/$id'),
       headers: await _authorizedHeaders(),
     );
 
     if (response.statusCode != 200 && response.statusCode != 204) {
       throw Exception(
         _errorMessage(fallback: 'Failed to delete user', response: response),
+      );
+    }
+  }
+
+  Future<void> updateUser({
+    required String id,
+    required String username,
+    required String email,
+    required String phoneNumber,
+    String? role,
+  }) async {
+    final payload = <String, String>{
+      'username': username,
+      'email': email,
+      'phone_number': phoneNumber,
+    };
+
+    if (role != null) {
+      payload['group_type'] = role;
+    }
+
+    final response = await _client.put(
+      Uri.parse('$baseUrl/users/$id'),
+      headers: await _authorizedHeaders(),
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        _errorMessage(fallback: 'Failed to update user', response: response),
+      );
+    }
+  }
+
+  Future<void> resetPassword({
+    required String id,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await _client.put(
+      Uri.parse('$baseUrl/users/$id/reset-password'),
+      headers: await _authorizedHeaders(),
+      body: jsonEncode({
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        _errorMessage(fallback: 'Failed to reset password', response: response),
+      );
+    }
+  }
+
+  Future<void> registerFace({
+    required String id,
+    required File imageFile,
+  }) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl/users/$id/face'),
+    );
+
+    request.headers.addAll(await _authorizationHeaders());
+    request.files.add(
+      await http.MultipartFile.fromPath('image', imageFile.path),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        _errorMessage(fallback: 'Failed to register face', response: response),
       );
     }
   }
@@ -86,6 +162,16 @@ class UserService {
     }
 
     return headers;
+  }
+
+  Future<Map<String, String>> _authorizationHeaders() async {
+    final token = await _tokenService.getToken();
+
+    if (token != null && token.isNotEmpty && token != 'null') {
+      return {'Authorization': 'Bearer ${token.trim()}'};
+    }
+
+    throw Exception('Invalid auth token');
   }
 
   String _errorMessage({

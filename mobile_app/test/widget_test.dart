@@ -122,26 +122,6 @@ void main() {
     expect(find.text('Retry'), findsOneWidget);
   });
 
-  testWidgets('face registration route renders selection controls', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      const MaterialApp(
-        initialRoute: AppRoutes.faceRegistration,
-        onGenerateRoute: AppRouter.generateRoute,
-      ),
-    );
-
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    expect(find.text('Face Registration'), findsOneWidget);
-    expect(find.text('Select User'), findsOneWidget);
-    expect(find.text('Capture'), findsOneWidget);
-    expect(find.text('Choose'), findsOneWidget);
-    expect(find.textContaining('Invalid auth token'), findsOneWidget);
-  });
-
   testWidgets('user management route renders the registration form', (
     WidgetTester tester,
   ) async {

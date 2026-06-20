@@ -5,7 +5,6 @@ import '../ui/screens/auth_gate_screen.dart';
 import '../ui/screens/camera_feed_screen.dart';
 import '../ui/screens/event_detail_screen.dart';
 import '../ui/screens/event_history_screen.dart';
-import '../ui/screens/face_registration_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/notification_center_screen.dart';
 import '../ui/screens/profile_screen.dart';
@@ -59,11 +58,6 @@ class AppRouter {
 
       case AppRoutes.userAccess:
         return MaterialPageRoute(builder: (_) => const UserAccessScreen());
-
-      case AppRoutes.faceRegistration:
-        return MaterialPageRoute(
-          builder: (_) => const FaceRegistrationScreen(),
-        );
 
       case AppRoutes.aiSettings:
         return MaterialPageRoute(
