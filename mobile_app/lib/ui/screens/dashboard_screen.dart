@@ -10,6 +10,7 @@ import '../widgets/dashboard_quick_actions.dart';
 import '../widgets/event_trend_chart.dart';
 import '../widgets/event_type_summary.dart';
 import '../widgets/latest_critical_event_card.dart';
+import '../widgets/screen_header.dart';
 import '../widgets/summary_status_card.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -93,9 +94,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onViewCamera:
                   widget.onViewCamera ??
                   () => Navigator.of(context).pushNamed(AppRoutes.cameraFeed),
-              onViewEventHistory:
+              onViewSecurityEvents:
                   widget.onViewAlerts ??
-                  () => Navigator.of(context).pushNamed(AppRoutes.alertHistory),
+                  () => Navigator.of(
+                    context,
+                  ).pushNamed(AppRoutes.notificationCenter),
               onUserAccessManagement: widget.canManageUsers
                   ? () => Navigator.of(context).pushNamed(AppRoutes.userAccess)
                   : null,
@@ -118,24 +121,13 @@ class _DashboardHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
     return Row(
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Smart Security Command Center',
-                style: textTheme.headlineSmall,
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Security overview, alerts, and quick actions',
-                style: textTheme.bodySmall,
-              ),
-            ],
+        const Expanded(
+          child: ScreenHeader(
+            title: 'Smart Security Command Center',
+            subtitle: 'Security overview, events, and quick actions',
+            icon: Icons.dashboard_outlined,
           ),
         ),
         IconButton(

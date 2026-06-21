@@ -5,6 +5,7 @@ import '../../domain/models/ai_event.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/event_detail_viewmodel.dart';
+import '../widgets/screen_header.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final int eventId;
@@ -66,6 +67,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
+        const ScreenHeader(
+          title: 'Event Detail',
+          subtitle: 'Review detection evidence and acknowledgement status',
+          icon: Icons.article_outlined,
+        ),
+        const SizedBox(height: AppSpacing.lg),
         _EventDetailHeader(
           event: event,
           icon: _eventIcon(event.eventType),

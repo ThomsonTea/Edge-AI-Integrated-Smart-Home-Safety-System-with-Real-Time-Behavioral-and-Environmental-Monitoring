@@ -45,7 +45,7 @@ void main() {
     await tester.pumpWidget(const SmartHomeApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Smart Home Login'), findsOneWidget);
+    expect(find.text('Smart Home Security'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
     expect(find.text('Login'), findsOneWidget);
@@ -59,14 +59,14 @@ void main() {
 
     expect(find.text('Smart Security System'), findsOneWidget);
     expect(find.text('Dashboard'), findsOneWidget);
-    expect(find.text('Alerts'), findsOneWidget);
+    expect(find.text('Events'), findsOneWidget);
     expect(find.text('Camera'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
 
-    await tester.tap(find.text('Alerts'));
+    await tester.tap(find.text('Events'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.textContaining('Error:'), findsOneWidget);
+    expect(find.text('Unable to load security events'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Camera'));
@@ -78,7 +78,7 @@ void main() {
     expect(find.text('Profile'), findsWidgets);
   });
 
-  testWidgets('drawer alert history opens event history route', (
+  testWidgets('drawer security events opens security events route', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -91,11 +91,13 @@ void main() {
 
     await tester.tap(find.byTooltip('Open navigation menu'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Alert History'));
+    expect(find.text('Alert History'), findsNothing);
+    await tester.tap(find.text('Security Events'));
     await tester.pumpAndSettle();
 
     expect(find.byTooltip('Back'), findsOneWidget);
-    expect(find.textContaining('Error:'), findsOneWidget);
+    expect(find.text('Security Events'), findsWidgets);
+    expect(find.text('Unable to load security events'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Back'));
     await tester.pumpAndSettle();
@@ -118,11 +120,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Event Detail'), findsOneWidget);
-    expect(find.textContaining('Error:'), findsOneWidget);
+    expect(find.text('Unable to load event detail'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
 
-  testWidgets('user management route renders the registration form', (
+  testWidgets('user management route renders the management shell', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -136,11 +138,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('User Access Management'), findsOneWidget);
-    expect(find.text('Register New User'), findsOneWidget);
-    expect(find.text('Full Name'), findsOneWidget);
-    expect(find.text('Email Address'), findsOneWidget);
-    expect(find.text('Phone Number'), findsOneWidget);
-    expect(find.text('Register User'), findsOneWidget);
+    expect(find.text('User Management'), findsOneWidget);
+    expect(find.text('Provision and manage system users'), findsOneWidget);
   });
 
   testWidgets('user management shows a standard back button when pushed', (

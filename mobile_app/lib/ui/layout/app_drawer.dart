@@ -44,17 +44,8 @@ class AppDrawer extends StatelessWidget {
 
           const _DrawerSectionTitle("Core Security"),
           _DrawerItem(
-            icon: Icons.history,
-            label: "Alert History",
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushNamed(context, AppRoutes.alertHistory);
-            },
-          ),
-
-          _DrawerItem(
-            icon: Icons.notifications,
-            label: "Notifications",
+            icon: Icons.security,
+            label: "Security Events",
             onTap: () {
               Navigator.pop(context);
               Navigator.pushNamed(context, AppRoutes.notificationCenter);

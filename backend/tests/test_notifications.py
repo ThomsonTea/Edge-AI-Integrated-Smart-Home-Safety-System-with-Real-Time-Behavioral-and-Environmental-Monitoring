@@ -83,6 +83,11 @@ class NotificationWebSocketTests(unittest.TestCase):
 
         self.assertIn("/users/{user_id}/reset-password", paths)
 
+    def test_acknowledge_visible_route_is_registered(self):
+        paths = {getattr(route, "path", None) for route in api_router.routes}
+
+        self.assertIn("/ai_events/acknowledge-visible", paths)
+
     def test_user_management_routes_are_registered(self):
         paths = {getattr(route, "path", None) for route in api_router.routes}
 

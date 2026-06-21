@@ -7,6 +7,7 @@ import '../../domain/models/user_profile.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/profile_viewmodel.dart';
+import '../widgets/screen_header.dart';
 
 class ProfileScreen extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -157,6 +158,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
+          const ScreenHeader(
+            title: 'Profile',
+            subtitle: 'Manage your account, password, and face registration',
+            icon: Icons.person_outline,
+          ),
+          const SizedBox(height: AppSpacing.lg),
           _ProfileHeader(
             profile: profile,
             isSaving: _viewModel.isSaving,

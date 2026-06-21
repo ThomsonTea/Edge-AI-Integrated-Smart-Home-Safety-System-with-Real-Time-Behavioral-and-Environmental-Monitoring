@@ -41,6 +41,10 @@ class AIEventTestCreateRequest(BaseModel):
     image_path: Optional[str] = None
 
 
+class AcknowledgeVisibleRequest(BaseModel):
+    event_ids: List[int]
+
+
 def _get_current_profile(
     current_user: dict,
     db: Session,
@@ -227,6 +231,51 @@ def create_test_ai_event(
     )
 
     return _event_to_response(event_with_relationships or event)
+
+
+@router.put("/acknowledge-visible", response_model=List[AIEventResponse])
+def acknowledge_visible_events(
+    request: AcknowledgeVisibleRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+
+    if not user.premise_id:
+        return []
+
+    event_ids = sorted({event_id for event_id in request.event_ids if event_id > 0})
+    if not event_ids:
+        return []
+
+    events = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.id.in_(event_ids))
+        .filter(AIEvent.premise_id == user.premise_id)
+        .all()
+    )
+
+    found_ids = {event.id for event in events}
+    inaccessible_ids = set(event_ids) - found_ids
+    if inaccessible_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to acknowledge one or more visible events",
+        )
+
+    for event in events:
+        event.is_acknowledged = True
+
+    db.commit()
+
+    for event in events:
+        db.refresh(event)
+
+    return [_event_to_response(event) for event in events]
 
 
 @router.get("/{event_id}", response_model=AIEventResponse)

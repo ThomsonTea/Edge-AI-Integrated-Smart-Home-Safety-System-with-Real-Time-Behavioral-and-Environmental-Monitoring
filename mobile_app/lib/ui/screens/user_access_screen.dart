@@ -7,6 +7,7 @@ import '../../domain/models/user.dart';
 import '../../routing/routes.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/user_access_viewmodel.dart';
+import '../widgets/screen_header.dart';
 import '../widgets/user_list.dart';
 import '../widgets/user_register_form.dart';
 
@@ -89,20 +90,10 @@ class _UserAccessScreenState extends State<UserAccessScreen> {
                           AppSpacing.lg,
                           AppSpacing.sm,
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.admin_panel_settings_outlined,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                'Provision and manage system users',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ),
-                          ],
+                        child: const ScreenHeader(
+                          title: 'User Management',
+                          subtitle: 'Provision and manage system users',
+                          icon: Icons.admin_panel_settings_outlined,
                         ),
                       ),
                       if (!vm.canManageUsers && vm.users.isEmpty)

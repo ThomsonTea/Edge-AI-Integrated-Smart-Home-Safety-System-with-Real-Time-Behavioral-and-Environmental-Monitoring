@@ -4,14 +4,14 @@ import '../../theme/app_spacing.dart';
 
 class DashboardQuickActions extends StatelessWidget {
   final VoidCallback onViewCamera;
-  final VoidCallback onViewEventHistory;
+  final VoidCallback onViewSecurityEvents;
   final VoidCallback? onUserAccessManagement;
   final VoidCallback onAiSettings;
 
   const DashboardQuickActions({
     super.key,
     required this.onViewCamera,
-    required this.onViewEventHistory,
+    required this.onViewSecurityEvents,
     this.onUserAccessManagement,
     required this.onAiSettings,
   });
@@ -36,9 +36,9 @@ class DashboardQuickActions extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             _ActionButton(
-              icon: Icons.history,
-              label: 'View Event History',
-              onPressed: onViewEventHistory,
+              icon: Icons.security,
+              label: 'View Security Events',
+              onPressed: onViewSecurityEvents,
             ),
             const SizedBox(height: AppSpacing.sm),
             if (onUserAccessManagement != null) ...[

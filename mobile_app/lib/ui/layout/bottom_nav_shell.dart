@@ -110,9 +110,9 @@ class _BottomNavShellState extends State<BottomNavShell> {
             label: "Dashboard",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
-            activeIcon: Icon(Icons.notifications),
-            label: "Alerts",
+            icon: Icon(Icons.security_outlined),
+            activeIcon: Icon(Icons.security),
+            label: "Events",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.videocam_outlined),

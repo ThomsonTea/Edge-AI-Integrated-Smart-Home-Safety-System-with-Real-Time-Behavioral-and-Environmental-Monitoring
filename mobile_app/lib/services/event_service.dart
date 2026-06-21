@@ -120,6 +120,36 @@ class EventService {
     );
   }
 
+  Future<List<AiEvent>> acknowledgeVisibleEvents(List<int> ids) async {
+    final eventIds = ids.where((id) => id > 0).toSet().toList();
+    if (eventIds.isEmpty) return const [];
+
+    final response = await _put(
+      Uri.parse('$baseUrl/ai_events/acknowledge-visible'),
+      body: jsonEncode({'event_ids': eventIds}),
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = _decodeJson(response);
+
+      if (decoded is! List) {
+        throw Exception('Unexpected acknowledge response format');
+      }
+
+      return decoded
+          .whereType<Map<String, dynamic>>()
+          .map(AiEvent.fromJson)
+          .toList();
+    }
+
+    throw Exception(
+      _errorMessage(
+        fallback: 'Failed to acknowledge visible events',
+        response: response,
+      ),
+    );
+  }
+
   Future<http.Response> _get(Uri uri) async {
     final headers = await _authorizedHeaders();
 
@@ -130,11 +160,11 @@ class EventService {
     }
   }
 
-  Future<http.Response> _put(Uri uri) async {
+  Future<http.Response> _put(Uri uri, {Object? body}) async {
     final headers = await _authorizedHeaders();
 
     try {
-      return await _client.put(uri, headers: headers);
+      return await _client.put(uri, headers: headers, body: body);
     } catch (e) {
       throw Exception('Network error: $e');
     }

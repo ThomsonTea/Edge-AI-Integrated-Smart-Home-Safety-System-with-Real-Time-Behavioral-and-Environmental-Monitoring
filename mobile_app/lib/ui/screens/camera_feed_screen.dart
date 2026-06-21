@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/camera_feed_viewmodel.dart';
 import '../widgets/camera_widget.dart';
+import '../widgets/screen_header.dart';
 
 class CameraFeedScreen extends StatefulWidget {
   final bool showAppBar;
@@ -39,7 +39,6 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
 
     final content = RefreshIndicator(
       onRefresh: _viewModel.loadCameraSession,
@@ -49,32 +48,12 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Camera Feed', style: textTheme.headlineSmall),
-                    const SizedBox(height: AppSpacing.xs),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.circle,
-                          size: AppSpacing.md,
-                          color: _viewModel.jwtToken == null
-                              ? _warningColor(context)
-                              : _safeColor(context),
-                        ),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            _viewModel.jwtToken == null
-                                ? 'Waiting for secure session'
-                                : 'Secure live stream ready',
-                            style: textTheme.bodySmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                child: ScreenHeader(
+                  title: 'Camera Feed',
+                  subtitle: _viewModel.jwtToken == null
+                      ? 'Waiting for secure session'
+                      : 'Secure live stream ready',
+                  icon: Icons.videocam_outlined,
                 ),
               ),
               IconButton(
@@ -111,18 +90,6 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
       appBar: AppBar(title: const Text('Camera Feed')),
       body: content,
     );
-  }
-
-  Color _safeColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.successDark
-        : AppColors.success;
-  }
-
-  Color _warningColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.warningDark
-        : AppColors.warning;
   }
 }
 
