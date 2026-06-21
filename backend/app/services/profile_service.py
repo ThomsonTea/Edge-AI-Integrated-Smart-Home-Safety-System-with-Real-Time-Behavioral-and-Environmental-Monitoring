@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.profile import Profile
 from app.services.face_service import FaceRegistrationError, FaceService
-from app.services.image_upload_validation import read_validated_image_upload
+from app.services.image_upload_validation import (
+    ensure_face_engine_supported_image,
+    read_validated_image_upload,
+)
 from app.services.user_service import UserService, is_owner, normalize_role
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -149,7 +152,8 @@ class ProfileService:
         profile: Profile,
         image: UploadFile,
     ) -> Profile:
-        image_bytes, _ = await read_validated_image_upload(image)
+        image_bytes, extension = await read_validated_image_upload(image)
+        ensure_face_engine_supported_image(extension)
         face_service = FaceService(self.db)
 
         try:
