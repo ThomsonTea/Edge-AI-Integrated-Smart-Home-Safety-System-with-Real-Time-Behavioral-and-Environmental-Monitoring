@@ -27,7 +27,7 @@ class CameraService:
     def __init__(self):
         self.rtsp_url = os.getenv(
             "CAMERA_RTSP_URL",
-            "rtsp://ThomsonTea:Tyj030903@10.42.0.195/stream1"
+            "rtsp://ThomsonTea:Tyj030903@192.168.0.32/stream1"
         )
 
         self.camera_premise_id = self._read_camera_premise_id()
