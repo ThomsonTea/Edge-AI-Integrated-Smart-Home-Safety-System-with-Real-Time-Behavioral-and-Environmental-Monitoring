@@ -345,10 +345,6 @@ class _UserDetailsCard extends StatelessWidget {
               label: 'Last Seen',
               value: _formatTimestamp(profile.lastSeen),
             ),
-            _ReadOnlyProfileRow(
-              label: 'Account Status',
-              value: profile.isBlacklisted ? 'Blacklisted' : 'Active',
-            ),
             const SizedBox(height: AppSpacing.md),
             ElevatedButton.icon(
               onPressed: isSaving ? null : onSave,

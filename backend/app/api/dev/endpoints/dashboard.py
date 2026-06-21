@@ -5,11 +5,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload
 
 from app.db.database import get_db
 from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
+from app.services.shared_camera import camera_service
 
 router = APIRouter()
 
@@ -17,7 +19,6 @@ TIME_FILTERS = {"today", "yesterday", "last_7_days", "all"}
 EVENT_TYPE_FILTERS = {
     "known_person",
     "unknown_person",
-    "blacklisted_person",
     "fire_alert",
     "gas_alert",
     "system_error",
@@ -26,13 +27,19 @@ EVENT_TYPE_FILTERS = {
 }
 CRITICAL_EVENT_TYPES = {
     "unknown_person",
-    "blacklisted_person",
     "fire_alert",
     "gas_alert",
     "system_error",
     "camera_offline",
     "fall_detected",
     "prolonged_inactivity",
+}
+ENVIRONMENT_EVENT_TYPES = {
+    "fire_alert",
+    "gas_alert",
+    "smoke_detected",
+    "high_temperature",
+    "fire_risk",
 }
 
 
@@ -88,7 +95,9 @@ def _event_to_response(event: AIEvent | None) -> Optional[dict]:
         "image_path": event.image_path,
         "is_acknowledged": bool(event.is_acknowledged),
         "premise_id": event.premise_id,
+        "premise_name": event.premise.name if event.premise is not None else None,
         "profile_id": event.profile_id,
+        "profile_name": event.profile.username if event.profile is not None else None,
     }
 
 
@@ -153,7 +162,6 @@ def _event_type_counts(events: list[AIEvent]) -> dict:
     counts = {
         "known_person": 0,
         "unknown_person": 0,
-        "blacklisted_person": 0,
         "other": 0,
     }
 
@@ -171,6 +179,19 @@ def _camera_status(events: list[AIEvent]) -> str:
         return "offline"
 
     return "online"
+
+
+def _system_health() -> dict:
+    runtime_status = camera_service.get_runtime_status()
+    sensor_online = False
+
+    return {
+        "backend_online": True,
+        "camera_online": bool(runtime_status.get("camera_online")),
+        "ai_detection_active": bool(runtime_status.get("ai_detection_active")),
+        "sensor_online": sensor_online,
+        "sensor_status": "not_configured",
+    }
 
 
 def _system_status(
@@ -216,20 +237,26 @@ def get_dashboard_summary(
     user = _get_current_profile(current_user=current_user, db=db)
 
     if user.premise_id is None:
+        health = _system_health()
         return {
+            **health,
             "system_status": "no_premise",
             "camera_status": "unknown",
             "known_person_today_count": 0,
             "unknown_person_today_count": 0,
+            "fall_today_count": 0,
+            "environment_alert_today_count": 0,
             "unacknowledged_count": 0,
+            "critical_alert_count": 0,
+            "unacknowledged_critical_count": 0,
             "event_trend": [],
             "event_type_counts": {
                 "known_person": 0,
                 "unknown_person": 0,
-                "blacklisted_person": 0,
                 "other": 0,
             },
             "latest_critical_event": None,
+            "latest_detection": None,
         }
 
     start_date, end_date = _time_window(selected_time_filter)
@@ -270,6 +297,26 @@ def get_dashboard_summary(
         )
         .count()
     )
+    fall_today_count = (
+        _base_event_query(
+            db,
+            user.premise_id,
+            start_date=today_start,
+            end_date=tomorrow_start,
+            event_type="fall_detected",
+        )
+        .count()
+    )
+    environment_alert_today_count = (
+        db.query(AIEvent)
+        .filter(
+            AIEvent.premise_id == user.premise_id,
+            AIEvent.timestamp >= today_start,
+            AIEvent.timestamp < tomorrow_start,
+            AIEvent.event_type.in_(ENVIRONMENT_EVENT_TYPES),
+        )
+        .count()
+    )
     unacknowledged_count = (
         db.query(AIEvent)
         .filter(
@@ -278,15 +325,34 @@ def get_dashboard_summary(
         )
         .count()
     )
+    critical_alert_count = (
+        db.query(AIEvent)
+        .filter(
+            AIEvent.premise_id == user.premise_id,
+            AIEvent.event_type.in_(CRITICAL_EVENT_TYPES),
+        )
+        .count()
+    )
+    unacknowledged_critical_count = (
+        db.query(AIEvent)
+        .filter(
+            AIEvent.premise_id == user.premise_id,
+            AIEvent.is_acknowledged == False,  # noqa: E712
+            AIEvent.event_type.in_(CRITICAL_EVENT_TYPES),
+        )
+        .count()
+    )
 
     latest_any_event = (
         db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
         .filter(AIEvent.premise_id == user.premise_id)
         .order_by(AIEvent.timestamp.desc())
         .first()
     )
     latest_critical_event = (
         db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
         .filter(
             AIEvent.premise_id == user.premise_id,
             AIEvent.event_type.in_(CRITICAL_EVENT_TYPES),
@@ -294,7 +360,8 @@ def get_dashboard_summary(
         .order_by(AIEvent.timestamp.desc())
         .first()
     )
-    camera_status = _camera_status([latest_any_event] if latest_any_event else [])
+    health = _system_health()
+    camera_status = "online" if health["camera_online"] else "offline"
     system_status = _system_status(
         camera_status=camera_status,
         unacknowledged_count=unacknowledged_count,
@@ -302,12 +369,18 @@ def get_dashboard_summary(
     )
 
     return {
+        **health,
         "system_status": system_status,
         "camera_status": camera_status,
         "known_person_today_count": known_today_count,
         "unknown_person_today_count": unknown_today_count,
+        "fall_today_count": fall_today_count,
+        "environment_alert_today_count": environment_alert_today_count,
         "unacknowledged_count": unacknowledged_count,
+        "critical_alert_count": critical_alert_count,
+        "unacknowledged_critical_count": unacknowledged_critical_count,
         "event_trend": _event_trend(filtered_events, selected_time_filter),
         "event_type_counts": _event_type_counts(filtered_events),
         "latest_critical_event": _event_to_response(latest_critical_event),
+        "latest_detection": _event_to_response(latest_any_event),
     }

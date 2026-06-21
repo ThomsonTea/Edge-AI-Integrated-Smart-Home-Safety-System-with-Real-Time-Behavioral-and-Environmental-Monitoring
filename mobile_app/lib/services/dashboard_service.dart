@@ -19,15 +19,8 @@ class DashboardService {
        _tokenService = tokenService ?? TokenService(),
        _client = client ?? http.Client();
 
-  Future<DashboardSummary> fetchSummary({
-    required String timeFilter,
-    required String eventType,
-  }) async {
-    final response = await _get(
-      Uri.parse('$baseUrl/dashboard/summary').replace(
-        queryParameters: {'time_filter': timeFilter, 'event_type': eventType},
-      ),
-    );
+  Future<DashboardSummary> fetchSummary() async {
+    final response = await _get(Uri.parse('$baseUrl/dashboard/summary'));
 
     if (response.statusCode == 200) {
       final decoded = _decodeJson(response);

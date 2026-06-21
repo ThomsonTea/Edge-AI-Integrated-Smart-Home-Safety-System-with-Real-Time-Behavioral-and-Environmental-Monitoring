@@ -17,9 +17,6 @@ class EventTypeSummary extends StatelessWidget {
     final warningColor = Theme.of(context).brightness == Brightness.dark
         ? AppColors.warningDark
         : AppColors.warning;
-    final dangerColor = Theme.of(context).brightness == Brightness.dark
-        ? AppColors.dangerDark
-        : AppColors.danger;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -42,11 +39,6 @@ class EventTypeSummary extends StatelessWidget {
               label: 'Unknown Person',
               count: counts.unknownPerson,
               color: warningColor,
-            ),
-            _CountRow(
-              label: 'Blacklisted Person',
-              count: counts.blacklistedPerson,
-              color: dangerColor,
             ),
             _CountRow(label: 'Other Alerts', count: counts.other),
           ],

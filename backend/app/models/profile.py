@@ -13,7 +13,6 @@ class Profile(Base):
     face_signature = Column(Text)
     profile_image_path = Column(Text)
     last_seen = Column(DateTime(timezone=True))
-    is_blacklisted = Column(Boolean, default=False)
     email = Column(String(255), unique=True, nullable=False)
 
     premise = relationship("Premise", back_populates="profiles")

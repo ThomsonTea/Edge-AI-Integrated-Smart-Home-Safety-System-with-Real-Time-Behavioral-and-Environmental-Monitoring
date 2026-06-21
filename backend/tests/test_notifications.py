@@ -107,7 +107,6 @@ class NotificationWebSocketTests(unittest.TestCase):
             profile_image_path="/storage/profile_pictures/test.jpg",
             face_signature="{}",
             last_seen=None,
-            is_blacklisted=False,
         )
 
         response = ProfileService(None).profile_response(profile)
@@ -680,7 +679,6 @@ class NotificationWebSocketTests(unittest.TestCase):
         events = [
             SimpleNamespace(event_type="known_person"),
             SimpleNamespace(event_type="unknown_person"),
-            SimpleNamespace(event_type="blacklisted_person"),
             SimpleNamespace(event_type="gas_alert"),
         ]
 
@@ -689,7 +687,6 @@ class NotificationWebSocketTests(unittest.TestCase):
             {
                 "known_person": 1,
                 "unknown_person": 1,
-                "blacklisted_person": 1,
                 "other": 1,
             },
         )
@@ -773,12 +770,6 @@ class NotificationWebSocketTests(unittest.TestCase):
             broadcast_ai_event_once(event)
 
         self.assertEqual(broadcast.call_count, 1)
-
-    def test_blacklisted_person_is_critical_priority(self):
-        self.assertEqual(
-            notification_service.priority_for_event_type("blacklisted_person"),
-            "Critical",
-        )
 
     def test_behavior_emergency_events_are_critical_priority(self):
         self.assertEqual(
@@ -1061,7 +1052,7 @@ class NotificationWebSocketTests(unittest.TestCase):
     def test_manual_test_event_types_are_limited_to_face_event_types(self):
         self.assertEqual(
             TEST_EVENT_TYPES,
-            {"known_person", "unknown_person", "blacklisted_person"},
+            {"known_person", "unknown_person"},
         )
 
     def test_manual_test_endpoint_allows_missing_role_for_legacy_tokens(self):

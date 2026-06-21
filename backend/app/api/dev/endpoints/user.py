@@ -5,6 +5,7 @@ from app.schemas.user import UserCreate, UserPasswordReset, UserUpdate
 from app.db import database
 from app.models.profile import Profile
 from app.services.face_service import FaceRegistrationError, FaceService
+from app.services.image_upload_validation import read_validated_image_upload
 from app.services.user_service import UserService, is_owner, normalize_role
 from app.middleware.jwt_auth import verify_token
 
@@ -194,7 +195,7 @@ async def register_managed_user_face(
             owner_message="Owner face cannot be registered from User Management.",
         )
 
-    image_bytes = await image.read()
+    image_bytes, _ = await read_validated_image_upload(image)
 
     try:
         updated_profile = FaceService(db).register_face_for_profile(

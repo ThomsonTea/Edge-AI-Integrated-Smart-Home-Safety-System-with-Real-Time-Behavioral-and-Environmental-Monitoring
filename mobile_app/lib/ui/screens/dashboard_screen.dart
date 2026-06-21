@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/models/dashboard_summary.dart';
 import '../../routing/routes.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/dashboard_viewmodel.dart';
-import '../widgets/dashboard_filter_bar.dart';
-import '../widgets/dashboard_quick_actions.dart';
-import '../widgets/event_trend_chart.dart';
-import '../widgets/event_type_summary.dart';
-import '../widgets/latest_critical_event_card.dart';
+import '../widgets/critical_alerts_summary_card.dart';
+import '../widgets/environment_snapshot_card.dart';
+import '../widgets/latest_detection_card.dart';
 import '../widgets/screen_header.dart';
-import '../widgets/summary_status_card.dart';
+import '../widgets/system_health_card.dart';
+import '../widgets/todays_activity_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onViewCamera;
@@ -63,13 +60,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onRefresh: _viewModel.loadSummary,
           ),
           const SizedBox(height: AppSpacing.lg),
-          DashboardFilterBar(
-            selectedTimeFilter: _viewModel.selectedTimeFilter,
-            selectedEventType: _viewModel.selectedEventType,
-            onTimeFilterChanged: _viewModel.setTimeFilter,
-            onEventTypeChanged: _viewModel.setEventTypeFilter,
-          ),
-          const SizedBox(height: AppSpacing.lg),
           if (_viewModel.errorMessage != null)
             _DashboardError(
               message: _viewModel.errorMessage!,
@@ -77,33 +67,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           else ...[
             if (_viewModel.isEmpty) const _DashboardEmptyState(),
-            _SummaryGrid(summary: _viewModel.summary),
+            SystemHealthCard(summary: _viewModel.summary),
             const SizedBox(height: AppSpacing.lg),
-            EventTrendChart(points: _viewModel.summary.eventTrend),
-            const SizedBox(height: AppSpacing.lg),
-            EventTypeSummary(counts: _viewModel.summary.eventTypeCounts),
-            const SizedBox(height: AppSpacing.lg),
-            LatestCriticalEventCard(
-              event: _viewModel.summary.latestCriticalEvent,
-              onOpenEvent: (eventId) => Navigator.of(
-                context,
-              ).pushNamed(AppRoutes.eventDetail, arguments: eventId),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            DashboardQuickActions(
-              onViewCamera:
-                  widget.onViewCamera ??
-                  () => Navigator.of(context).pushNamed(AppRoutes.cameraFeed),
-              onViewSecurityEvents:
+            CriticalAlertsSummaryCard(
+              criticalCount: _viewModel.summary.criticalAlertCount,
+              unacknowledgedCriticalCount:
+                  _viewModel.summary.unacknowledgedCriticalCount,
+              onTap:
                   widget.onViewAlerts ??
                   () => Navigator.of(
                     context,
                   ).pushNamed(AppRoutes.notificationCenter),
-              onUserAccessManagement: widget.canManageUsers
-                  ? () => Navigator.of(context).pushNamed(AppRoutes.userAccess)
-                  : null,
-              onAiSettings: () =>
-                  Navigator.of(context).pushNamed(AppRoutes.aiSettings),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TodaysActivityCard(summary: _viewModel.summary),
+            const SizedBox(height: AppSpacing.lg),
+            const EnvironmentSnapshotCard(),
+            const SizedBox(height: AppSpacing.lg),
+            LatestDetectionCard(
+              event: _viewModel.summary.latestDetection,
+              onOpenEvent: (eventId) => Navigator.of(
+                context,
+              ).pushNamed(AppRoutes.eventDetail, arguments: eventId),
             ),
           ],
         ],
@@ -125,8 +110,8 @@ class _DashboardHeader extends StatelessWidget {
       children: [
         const Expanded(
           child: ScreenHeader(
-            title: 'Smart Security Command Center',
-            subtitle: 'Security overview, events, and quick actions',
+            title: 'System Overview',
+            subtitle: 'Current state of the smart home security system',
             icon: Icons.dashboard_outlined,
           ),
         ),
@@ -144,118 +129,6 @@ class _DashboardHeader extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _SummaryGrid extends StatelessWidget {
-  final DashboardSummary summary;
-
-  const _SummaryGrid({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 640;
-        final itemWidth = isWide
-            ? (constraints.maxWidth - AppSpacing.md) / 2
-            : constraints.maxWidth;
-
-        return Wrap(
-          spacing: AppSpacing.md,
-          runSpacing: AppSpacing.md,
-          children: [
-            SizedBox(
-              width: itemWidth,
-              child: SummaryStatusCard(
-                icon: Icons.verified_user,
-                title: 'System Status',
-                value: _statusLabel(summary.systemStatus),
-                color: _statusColor(context, summary.systemStatus),
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryStatusCard(
-                icon: Icons.videocam,
-                title: 'Camera Status',
-                value: _statusLabel(summary.cameraStatus),
-                color: summary.cameraStatus == 'online'
-                    ? _safeColor(context)
-                    : _warningColor(context),
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryStatusCard(
-                icon: Icons.person,
-                title: 'Known Persons Today',
-                value: summary.knownPersonTodayCount.toString(),
-                color: _safeColor(context),
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryStatusCard(
-                icon: Icons.person_search,
-                title: 'Unknown Persons Today',
-                value: summary.unknownPersonTodayCount.toString(),
-                color: _warningColor(context),
-              ),
-            ),
-            SizedBox(
-              width: itemWidth,
-              child: SummaryStatusCard(
-                icon: Icons.notifications_active,
-                title: 'Unacknowledged Alerts',
-                value: summary.unacknowledgedCount.toString(),
-                color: summary.unacknowledgedCount > 0
-                    ? _dangerColor(context)
-                    : _safeColor(context),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  String _statusLabel(String value) {
-    return value
-        .replaceAll('_', ' ')
-        .split(RegExp(r'\s+'))
-        .where((word) => word.isNotEmpty)
-        .map((word) => word[0].toUpperCase() + word.substring(1))
-        .join(' ');
-  }
-
-  Color _statusColor(BuildContext context, String status) {
-    return switch (status) {
-      'normal' => _safeColor(context),
-      'online' => _safeColor(context),
-      'attention_required' => _warningColor(context),
-      'critical_alert' => _dangerColor(context),
-      'camera_offline' => _dangerColor(context),
-      _ => Theme.of(context).colorScheme.onSurfaceVariant,
-    };
-  }
-
-  Color _safeColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.successDark
-        : AppColors.success;
-  }
-
-  Color _warningColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.warningDark
-        : AppColors.warning;
-  }
-
-  Color _dangerColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? AppColors.dangerDark
-        : AppColors.danger;
   }
 }
 
@@ -327,9 +200,7 @@ class _DashboardEmptyState extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               const Expanded(
-                child: Text(
-                  'No dashboard activity found for the selected filters.',
-                ),
+                child: Text('No system activity has been recorded yet.'),
               ),
             ],
           ),

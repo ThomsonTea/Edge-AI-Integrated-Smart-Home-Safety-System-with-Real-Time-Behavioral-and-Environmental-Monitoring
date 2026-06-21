@@ -11,7 +11,6 @@ class UserProfile {
   final String? profileImagePath;
   final bool faceRegistered;
   final DateTime? lastSeen;
-  final bool isBlacklisted;
   final bool isPrimaryOwner;
 
   const UserProfile({
@@ -25,7 +24,6 @@ class UserProfile {
     this.profileImagePath,
     required this.faceRegistered,
     this.lastSeen,
-    required this.isBlacklisted,
     this.isPrimaryOwner = false,
   });
 
@@ -44,7 +42,6 @@ class UserProfile {
       profileImagePath: _stringFromJson(json['profile_image_path']),
       faceRegistered: json['face_registered'] == true,
       lastSeen: DateTime.tryParse(json['last_seen']?.toString() ?? ''),
-      isBlacklisted: json['is_blacklisted'] == true,
       isPrimaryOwner: json['is_primary_owner'] == true,
     );
   }

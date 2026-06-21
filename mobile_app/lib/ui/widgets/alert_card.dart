@@ -175,7 +175,6 @@ class AlertCard extends StatelessWidget {
     return switch (eventType) {
       'known_person' => Icons.person,
       'unknown_person' => Icons.warning_amber,
-      'blacklisted_person' => Icons.block,
       'fall_detected' => Icons.emergency_outlined,
       'prolonged_inactivity' => Icons.personal_injury_outlined,
       'fire_alert' => Icons.local_fire_department_outlined,

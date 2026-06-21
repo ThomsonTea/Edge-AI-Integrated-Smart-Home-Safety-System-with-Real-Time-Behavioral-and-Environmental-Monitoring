@@ -161,7 +161,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return switch (eventType) {
       'known_person' => Icons.person,
       'unknown_person' => Icons.warning_amber,
-      'blacklisted_person' => Icons.block,
       'person_detected' => Icons.person_search,
       'fire_alert' => Icons.local_fire_department,
       'gas_alert' => Icons.gas_meter,
@@ -178,7 +177,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     return switch (eventType) {
       'known_person' => _safeColor(context),
       'unknown_person' => _warningColor(context),
-      'blacklisted_person' => _dangerColor(context),
       'fire_alert' => _dangerColor(context),
       'gas_alert' => _dangerColor(context),
       'sensor_alert' => _dangerColor(context),

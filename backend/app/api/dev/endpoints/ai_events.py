@@ -16,7 +16,7 @@ from app.services.notification_service import notification_payload_for_event
 
 router = APIRouter()
 
-TEST_EVENT_TYPES = {"known_person", "unknown_person", "blacklisted_person"}
+TEST_EVENT_TYPES = {"known_person", "unknown_person"}
 
 
 class AIEventResponse(BaseModel):

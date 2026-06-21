@@ -7,16 +7,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.profile import Profile
 from app.services.face_service import FaceRegistrationError, FaceService
+from app.services.image_upload_validation import read_validated_image_upload
 from app.services.user_service import UserService, is_owner, normalize_role
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 PROFILE_PICTURE_DIR = BASE_DIR / "storage" / "profile_pictures"
-MAX_PROFILE_PICTURE_BYTES = 5 * 1024 * 1024
-ALLOWED_PROFILE_PICTURE_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-}
 
 
 class ProfileService:
@@ -55,7 +50,6 @@ class ProfileService:
             "profile_image_path": profile.profile_image_path,
             "face_registered": bool(profile.face_signature),
             "last_seen": profile.last_seen,
-            "is_blacklisted": bool(profile.is_blacklisted),
             "is_primary_owner": is_owner(profile),
         }
 
@@ -138,27 +132,7 @@ class ProfileService:
         profile: Profile,
         image: UploadFile,
     ) -> Profile:
-        extension = ALLOWED_PROFILE_PICTURE_TYPES.get(image.content_type or "")
-
-        if extension is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Profile picture must be a JPEG, PNG, or WebP image",
-            )
-
-        image_bytes = await image.read()
-
-        if not image_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Profile picture file is empty",
-            )
-
-        if len(image_bytes) > MAX_PROFILE_PICTURE_BYTES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Profile picture must be 5MB or smaller",
-            )
+        image_bytes, extension = await read_validated_image_upload(image)
 
         PROFILE_PICTURE_DIR.mkdir(parents=True, exist_ok=True)
         filename = f"profile_{profile.id}_{uuid4().hex}{extension}"
@@ -175,7 +149,7 @@ class ProfileService:
         profile: Profile,
         image: UploadFile,
     ) -> Profile:
-        image_bytes = await image.read()
+        image_bytes, _ = await read_validated_image_upload(image)
         face_service = FaceService(self.db)
 
         try:

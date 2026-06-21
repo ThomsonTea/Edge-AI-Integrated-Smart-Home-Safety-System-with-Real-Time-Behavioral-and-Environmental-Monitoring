@@ -9,7 +9,6 @@ enum AlertFilter {
   unacknowledged('Unacknowledged'),
   knownPerson('Known Person'),
   unknownPerson('Unknown Person'),
-  blacklisted('Blacklisted'),
   fall('Fall'),
   inactivity('Inactivity'),
   fire('Fire'),
@@ -285,7 +284,6 @@ class NotificationViewModel extends ChangeNotifier {
 
   AlertSeverity severityFor(String eventType) {
     return switch (eventType) {
-      'blacklisted_person' ||
       'fall_detected' ||
       'prolonged_inactivity' ||
       'fire_alert' ||
@@ -305,7 +303,6 @@ class NotificationViewModel extends ChangeNotifier {
       AlertFilter.unacknowledged => !event.isAcknowledged,
       AlertFilter.knownPerson => event.eventType == 'known_person',
       AlertFilter.unknownPerson => event.eventType == 'unknown_person',
-      AlertFilter.blacklisted => event.eventType == 'blacklisted_person',
       AlertFilter.fall => event.eventType == 'fall_detected',
       AlertFilter.inactivity => event.eventType == 'prolonged_inactivity',
       AlertFilter.fire => event.eventType == 'fire_alert',

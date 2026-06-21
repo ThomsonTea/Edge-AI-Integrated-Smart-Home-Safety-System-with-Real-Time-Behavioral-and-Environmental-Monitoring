@@ -308,15 +308,6 @@ class FaceService:
             )
             raise FaceLoginError("Face not recognized.")
 
-        if best_profile.is_blacklisted:
-            self._log_face_login_decision(
-                best_profile_id=best_profile.id,
-                best_score=best_score,
-                accepted=False,
-                reason="Blacklisted profile.",
-            )
-            raise FaceLoginError("Face login is not allowed for this profile.")
-
         self._log_face_login_decision(
             best_profile_id=best_profile.id,
             best_score=best_score,

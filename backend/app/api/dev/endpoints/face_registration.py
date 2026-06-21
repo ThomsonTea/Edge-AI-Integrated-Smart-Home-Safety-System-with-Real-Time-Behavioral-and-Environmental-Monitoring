@@ -6,6 +6,7 @@ from app.middleware.jwt_auth import verify_token
 from app.models.profile import Profile
 from app.schemas.face import FaceRegistrationResponse
 from app.services.face_service import FaceRegistrationError, FaceService
+from app.services.image_upload_validation import read_validated_image_upload
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -52,7 +53,7 @@ async def register_profile_face(
         owner_message="Owner face cannot be registered from User Management.",
     )
 
-    image_bytes = await image.read()
+    image_bytes, _ = await read_validated_image_upload(image)
     service = FaceService(db)
 
     try:
