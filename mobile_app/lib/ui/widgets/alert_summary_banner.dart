@@ -7,13 +7,11 @@ import '../../theme/app_text_styles.dart';
 class AlertSummaryBanner extends StatelessWidget {
   final int criticalCount;
   final int unacknowledgedCount;
-  final DateTime? lastAlertTime;
 
   const AlertSummaryBanner({
     super.key,
     required this.criticalCount,
     required this.unacknowledgedCount,
-    required this.lastAlertTime,
   });
 
   @override
@@ -21,65 +19,33 @@ class AlertSummaryBanner extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final hasCritical = criticalCount > 0;
     final accent = hasCritical ? _dangerColor(context) : colorScheme.primary;
-    final background = hasCritical
-        ? accent.withValues(alpha: 0.12)
-        : colorScheme.primaryContainer.withValues(alpha: 0.55);
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: background,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: accent.withValues(alpha: 0.14),
-                  foregroundColor: accent,
-                  child: Icon(
-                    hasCritical
-                        ? Icons.warning_amber_rounded
-                        : Icons.shield_outlined,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    hasCritical ? 'Critical alerts active' : 'Security status',
-                    style: AppTextStyles.sectionTitle.copyWith(
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
+            Expanded(
+              child: _SummaryMetric(
+                icon: Icons.warning_amber_rounded,
+                label: 'Critical',
+                value: criticalCount.toString(),
+                color: accent,
+              ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryMetric(
-                    label: 'Critical Alerts',
-                    value: criticalCount.toString(),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    label: 'Unacknowledged',
-                    value: unacknowledgedCount.toString(),
-                  ),
-                ),
-                Expanded(
-                  child: _SummaryMetric(
-                    label: 'Last Alert',
-                    value: _relativeTime(lastAlertTime),
-                  ),
-                ),
-              ],
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _SummaryMetric(
+                icon: Icons.notifications_active_outlined,
+                label: 'Unacknowledged',
+                value: unacknowledgedCount.toString(),
+                color: unacknowledgedCount > 0 ? accent : colorScheme.primary,
+              ),
             ),
           ],
         ),
@@ -92,47 +58,58 @@ class AlertSummaryBanner extends StatelessWidget {
         ? AppColors.dangerDark
         : AppColors.danger;
   }
-
-  String _relativeTime(DateTime? timestamp) {
-    if (timestamp == null) return 'None';
-
-    final difference = DateTime.now().difference(timestamp.toLocal());
-    if (difference.inMinutes < 1) return 'Just now';
-    if (difference.inMinutes < 60) return '${difference.inMinutes} min ago';
-    if (difference.inHours < 24) return '${difference.inHours} hr ago';
-    return '${difference.inDays} d ago';
-  }
 }
 
 class _SummaryMetric extends StatelessWidget {
+  final IconData icon;
   final String label;
   final String value;
+  final Color color;
 
-  const _SummaryMetric({required this.label, required this.value});
+  const _SummaryMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
       children: [
-        Text(
-          value,
-          style: AppTextStyles.sectionTitle.copyWith(
-            color: colorScheme.onSurface,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        CircleAvatar(
+          radius: AppSpacing.xl,
+          backgroundColor: color.withValues(alpha: 0.12),
+          foregroundColor: color,
+          child: Icon(icon),
         ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: AppTextStyles.caption.copyWith(
-            color: colorScheme.onSurfaceVariant,
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                value,
+                style: AppTextStyles.sectionTitle.copyWith(
+                  color: colorScheme.onSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                label,
+                style: AppTextStyles.caption.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

@@ -100,7 +100,6 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           AlertSummaryBanner(
             criticalCount: _viewModel.criticalCount,
             unacknowledgedCount: _viewModel.unacknowledgedCount,
-            lastAlertTime: _viewModel.lastAlertTime,
           ),
           const SizedBox(height: AppSpacing.lg),
           AlertStatisticsStrip(
@@ -110,17 +109,13 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             criticalAlertsToday: _viewModel.criticalTodayCount,
           ),
           const SizedBox(height: AppSpacing.lg),
-          AlertSearchField(
-            value: _viewModel.searchQuery,
-            onChanged: _viewModel.setSearchQuery,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AlertDateFilterBar(
-            filters: _viewModel.dateFilters,
-            selectedFilter: _viewModel.selectedDateFilter,
-            selectedLabel: _viewModel.selectedDateFilterLabel,
-            onSelected: _viewModel.setDateFilter,
-            onCustomSelected: _showCustomDateRangePicker,
+          _SearchAndDateFilterRow(
+            searchField: AlertSearchField(
+              value: _viewModel.searchQuery,
+              onChanged: _viewModel.setSearchQuery,
+            ),
+            dateLabel: _viewModel.selectedDateFilterLabel,
+            onDatePressed: _showDateFilterSheet,
           ),
           const SizedBox(height: AppSpacing.md),
           AlertFilterBar(
@@ -152,6 +147,56 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 
   void _openEventDetail(AiEvent event) {
     Navigator.of(context).pushNamed(AppRoutes.eventDetail, arguments: event.id);
+  }
+
+  Future<void> _showDateFilterSheet() async {
+    final selected = await showModalBottomSheet<EventDateFilter>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Filter by date',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                for (final filter in _viewModel.dateFilters)
+                  ListTile(
+                    leading: Icon(
+                      filter == EventDateFilter.custom
+                          ? Icons.date_range_outlined
+                          : Icons.calendar_today_outlined,
+                    ),
+                    title: Text(
+                      filter == EventDateFilter.custom
+                          ? 'Custom Range'
+                          : filter.label,
+                    ),
+                    trailing: _viewModel.selectedDateFilter == filter
+                        ? const Icon(Icons.check)
+                        : null,
+                    onTap: () => Navigator.of(context).pop(filter),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null) return;
+
+    if (selected == EventDateFilter.custom) {
+      await _showCustomDateRangePicker();
+      return;
+    }
+
+    _viewModel.setDateFilter(selected);
   }
 
   Future<void> _showCustomDateRangePicker() async {
@@ -204,6 +249,46 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     if (confirmed == true) {
       await _viewModel.acknowledgeVisibleEvents();
     }
+  }
+}
+
+class _SearchAndDateFilterRow extends StatelessWidget {
+  final Widget searchField;
+  final String dateLabel;
+  final VoidCallback onDatePressed;
+
+  const _SearchAndDateFilterRow({
+    required this.searchField,
+    required this.dateLabel,
+    required this.onDatePressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 380;
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: searchField),
+            const SizedBox(width: AppSpacing.sm),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: compact ? 48 : 132,
+                maxWidth: compact ? 56 : 168,
+              ),
+              child: AlertDateFilterButton(
+                label: dateLabel,
+                showLabel: !compact,
+                onPressed: onDatePressed,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
