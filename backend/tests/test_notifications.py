@@ -1070,9 +1070,19 @@ class NotificationWebSocketTests(unittest.TestCase):
                 self.added_event = None
                 self.committed = False
                 self.refreshed = False
+                self.profile = SimpleNamespace(id=2, last_seen=None)
 
             def add(self, event):
                 self.added_event = event
+
+            def query(self, model):
+                return self
+
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return self.profile
 
             def commit(self):
                 self.committed = True
@@ -1104,7 +1114,158 @@ class NotificationWebSocketTests(unittest.TestCase):
         self.assertEqual(event.id, 101)
         self.assertEqual(event.event_type, "known_person")
         self.assertEqual(event.profile_id, 2)
+        self.assertIsNotNone(db.profile.last_seen)
         self.assertEqual(broadcast.call_count, 1)
+
+    def test_known_person_with_profile_id_updates_last_seen(self):
+        profile = SimpleNamespace(id=2, last_seen=None)
+
+        class FakeQuery:
+            def filter(self, *args):
+                return self
+
+            def first(self):
+                return profile
+
+        class FakeDb:
+            def __init__(self):
+                self.committed = False
+
+            def add(self, event):
+                pass
+
+            def query(self, model):
+                return FakeQuery()
+
+            def commit(self):
+                self.committed = True
+
+            def refresh(self, event):
+                event.id = 201
+
+        with patch.object(
+            notification_service.notification_connection_manager,
+            "broadcast_event_threadsafe",
+        ):
+            create_ai_event(
+                FakeDb(),
+                premise_id=1,
+                profile_id=2,
+                event_type="known_person",
+                confidence_score=90.0,
+                image_path="/storage/alerts/test.jpg",
+            )
+
+        self.assertIsNotNone(profile.last_seen)
+
+    def test_known_person_without_profile_id_does_not_crash(self):
+        class FakeDb:
+            queried = False
+
+            def add(self, event):
+                pass
+
+            def query(self, model):
+                self.queried = True
+                raise AssertionError("Profile should not be queried")
+
+            def commit(self):
+                pass
+
+            def refresh(self, event):
+                event.id = 202
+
+        db = FakeDb()
+
+        with patch.object(
+            notification_service.notification_connection_manager,
+            "broadcast_event_threadsafe",
+        ):
+            event = create_ai_event(
+                db,
+                premise_id=1,
+                profile_id=None,
+                event_type="known_person",
+                confidence_score=90.0,
+                image_path="/storage/alerts/test.jpg",
+            )
+
+        self.assertEqual(event.event_type, "known_person")
+        self.assertFalse(db.queried)
+
+    def test_unknown_person_does_not_update_last_seen(self):
+        profile = SimpleNamespace(id=2, last_seen=None)
+
+        class FakeDb:
+            queried = False
+
+            def add(self, event):
+                pass
+
+            def query(self, model):
+                self.queried = True
+                raise AssertionError("Profile should not be queried")
+
+            def commit(self):
+                pass
+
+            def refresh(self, event):
+                event.id = 203
+
+        db = FakeDb()
+
+        with patch.object(
+            notification_service.notification_connection_manager,
+            "broadcast_event_threadsafe",
+        ):
+            create_ai_event(
+                db,
+                premise_id=1,
+                profile_id=2,
+                event_type="unknown_person",
+                confidence_score=80.0,
+                image_path="/storage/alerts/test.jpg",
+            )
+
+        self.assertIsNone(profile.last_seen)
+        self.assertFalse(db.queried)
+
+    def test_fall_detected_does_not_update_last_seen(self):
+        profile = SimpleNamespace(id=2, last_seen=None)
+
+        class FakeDb:
+            queried = False
+
+            def add(self, event):
+                pass
+
+            def query(self, model):
+                self.queried = True
+                raise AssertionError("Profile should not be queried")
+
+            def commit(self):
+                pass
+
+            def refresh(self, event):
+                event.id = 204
+
+        db = FakeDb()
+
+        with patch.object(
+            notification_service.notification_connection_manager,
+            "broadcast_event_threadsafe",
+        ):
+            create_ai_event(
+                db,
+                premise_id=1,
+                profile_id=2,
+                event_type="fall_detected",
+                confidence_score=95.0,
+                image_path="/storage/alerts/test.jpg",
+            )
+
+        self.assertIsNone(profile.last_seen)
+        self.assertFalse(db.queried)
 
 
 if __name__ == "__main__":

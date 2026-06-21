@@ -1,9 +1,11 @@
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from app.models.event import AIEvent
+from app.models.profile import Profile
 from app.services.notification_service import broadcast_ai_event_once
 
 
@@ -27,6 +29,12 @@ def create_ai_event(
     )
 
     db.add(event)
+
+    if event_type == "known_person" and profile_id is not None:
+        profile = db.query(Profile).filter(Profile.id == profile_id).first()
+        if profile is not None:
+            profile.last_seen = datetime.now(timezone.utc)
+
     db.commit()
     db.refresh(event)
 
