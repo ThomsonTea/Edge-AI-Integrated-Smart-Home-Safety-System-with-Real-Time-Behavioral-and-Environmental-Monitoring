@@ -11,16 +11,22 @@ class AlertCard extends StatelessWidget {
   final AiEvent event;
   final AlertSeverity severity;
   final bool isAcknowledging;
+  final bool isDeleting;
+  final bool canDelete;
   final VoidCallback onTap;
   final VoidCallback onAcknowledge;
+  final VoidCallback? onDelete;
 
   const AlertCard({
     super.key,
     required this.event,
     required this.severity,
     required this.isAcknowledging,
+    this.isDeleting = false,
+    this.canDelete = false,
     required this.onTap,
     required this.onAcknowledge,
+    this.onDelete,
   });
 
   @override
@@ -63,6 +69,58 @@ class AlertCard extends StatelessWidget {
                               ),
                             ),
                             _Badge(label: _severityLabel, color: severityColor),
+                            const SizedBox(width: AppSpacing.xs),
+                            PopupMenuButton<_AlertCardAction>(
+                              tooltip: 'Event actions',
+                              onSelected: (action) {
+                                switch (action) {
+                                  case _AlertCardAction.viewDetails:
+                                    onTap();
+                                    break;
+                                  case _AlertCardAction.acknowledge:
+                                    onAcknowledge();
+                                    break;
+                                  case _AlertCardAction.delete:
+                                    onDelete?.call();
+                                    break;
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: _AlertCardAction.viewDetails,
+                                  child: ListTile(
+                                    leading: Icon(Icons.open_in_new_outlined),
+                                    title: Text('View Details'),
+                                  ),
+                                ),
+                                if (!event.isAcknowledged)
+                                  PopupMenuItem(
+                                    value: _AlertCardAction.acknowledge,
+                                    enabled: !isAcknowledging,
+                                    child: const ListTile(
+                                      leading: Icon(Icons.check_circle_outline),
+                                      title: Text('Acknowledge'),
+                                    ),
+                                  ),
+                                if (canDelete)
+                                  PopupMenuItem(
+                                    value: _AlertCardAction.delete,
+                                    enabled: !isDeleting,
+                                    child: ListTile(
+                                      leading: Icon(
+                                        Icons.delete_outline,
+                                        color: colorScheme.error,
+                                      ),
+                                      title: Text(
+                                        isDeleting ? 'Deleting...' : 'Delete',
+                                        style: TextStyle(
+                                          color: colorScheme.error,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: AppSpacing.xs),
@@ -218,6 +276,8 @@ class AlertCard extends StatelessWidget {
     return value.length > 16 ? value.substring(0, 16) : value;
   }
 }
+
+enum _AlertCardAction { viewDetails, acknowledge, delete }
 
 class _SnapshotThumbnail extends StatelessWidget {
   final String url;

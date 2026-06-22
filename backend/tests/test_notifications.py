@@ -11,6 +11,7 @@ from passlib.context import CryptContext
 from app.api.dev.api import api_router
 from app.api.dev.endpoints.ai_events import (
     TEST_EVENT_TYPES,
+    delete_ai_event,
     _ensure_admin_if_role_exists,
 )
 from app.api.dev.endpoints.dashboard import _event_trend, _event_type_counts
@@ -58,6 +59,119 @@ class NotificationWebSocketTests(unittest.TestCase):
         paths = {getattr(route, "path", None) for route in api_router.routes}
 
         self.assertIn("/ws/notifications", paths)
+
+
+class FakeAIEventDeleteQuery:
+    def __init__(self, result):
+        self.result = result
+
+    def filter(self, *args):
+        return self
+
+    def first(self):
+        return self.result
+
+
+class FakeAIEventDeleteDb:
+    def __init__(self, *, user=None, event=None):
+        self.user = user
+        self.event = event
+        self.deleted = None
+        self.committed = False
+
+    def query(self, model):
+        if getattr(model, "__name__", "") == "Profile":
+            return FakeAIEventDeleteQuery(self.user)
+
+        if getattr(model, "__name__", "") == "AIEvent":
+            return FakeAIEventDeleteQuery(self.event)
+
+        return FakeAIEventDeleteQuery(None)
+
+    def delete(self, model):
+        self.deleted = model
+
+    def commit(self):
+        self.committed = True
+
+
+class AIEventDeleteEndpointTests(unittest.TestCase):
+    def test_owner_can_delete_own_premise_event(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        event = SimpleNamespace(id=10, premise_id=7)
+        db = FakeAIEventDeleteDb(user=user, event=event)
+
+        response = delete_ai_event(
+            event_id=10,
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        self.assertEqual(response["message"], "Event deleted successfully")
+        self.assertIs(db.deleted, event)
+        self.assertTrue(db.committed)
+
+    def test_manager_can_delete_own_premise_event(self):
+        user = SimpleNamespace(id=1, group_type="manager", premise_id=7)
+        event = SimpleNamespace(id=10, premise_id=7)
+        db = FakeAIEventDeleteDb(user=user, event=event)
+
+        response = delete_ai_event(
+            event_id=10,
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        self.assertEqual(response["message"], "Event deleted successfully")
+        self.assertIs(db.deleted, event)
+        self.assertTrue(db.committed)
+
+    def test_normal_user_cannot_delete_event(self):
+        user = SimpleNamespace(id=1, group_type="normal_user", premise_id=7)
+        event = SimpleNamespace(id=10, premise_id=7)
+        db = FakeAIEventDeleteDb(user=user, event=event)
+
+        with self.assertRaises(HTTPException) as context:
+            delete_ai_event(
+                event_id=10,
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_cross_premise_event_delete_is_forbidden(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        event = SimpleNamespace(id=10, premise_id=8)
+        db = FakeAIEventDeleteDb(user=user, event=event)
+
+        with self.assertRaises(HTTPException) as context:
+            delete_ai_event(
+                event_id=10,
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_missing_event_delete_returns_404(self):
+        user = SimpleNamespace(id=1, group_type="manager", premise_id=7)
+        db = FakeAIEventDeleteDb(user=user, event=None)
+
+        with self.assertRaises(HTTPException) as context:
+            delete_ai_event(
+                event_id=99,
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 404)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
 
     def test_auth_routes_include_me_and_face_login(self):
         paths = {getattr(route, "path", None) for route in api_router.routes}

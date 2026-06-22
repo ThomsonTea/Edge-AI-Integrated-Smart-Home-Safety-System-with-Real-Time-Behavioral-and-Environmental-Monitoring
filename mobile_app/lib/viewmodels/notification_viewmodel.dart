@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../domain/models/ai_event.dart';
 import '../services/event_service.dart';
+import '../services/token_service.dart';
 
 enum AlertFilter {
   all('All'),
@@ -43,9 +44,13 @@ class AlertGroup {
 
 class NotificationViewModel extends ChangeNotifier {
   final EventService _eventService;
+  final TokenService _tokenService;
 
-  NotificationViewModel({EventService? eventService})
-    : _eventService = eventService ?? EventService();
+  NotificationViewModel({
+    EventService? eventService,
+    TokenService? tokenService,
+  }) : _eventService = eventService ?? EventService(),
+       _tokenService = tokenService ?? TokenService();
 
   List<AiEvent> _events = const [];
   bool _isLoading = false;
@@ -57,6 +62,8 @@ class NotificationViewModel extends ChangeNotifier {
   DateTime? _customStartDate;
   DateTime? _customEndDate;
   final Set<int> _acknowledgingEventIds = <int>{};
+  final Set<int> _deletingEventIds = <int>{};
+  String? _currentUserRole;
 
   List<AiEvent> get events => _events;
   bool get isLoading => _isLoading;
@@ -69,6 +76,8 @@ class NotificationViewModel extends ChangeNotifier {
   DateTime? get customEndDate => _customEndDate;
   List<AlertFilter> get filters => AlertFilter.values;
   List<EventDateFilter> get dateFilters => EventDateFilter.values;
+  bool get canDeleteEvents =>
+      _currentUserRole == 'owner' || _currentUserRole == 'manager';
   String get selectedDateFilterLabel {
     if (_selectedDateFilter != EventDateFilter.custom ||
         _customStartDate == null ||
@@ -158,6 +167,10 @@ class NotificationViewModel extends ChangeNotifier {
     return _acknowledgingEventIds.contains(event.id);
   }
 
+  bool isDeleting(AiEvent event) {
+    return _deletingEventIds.contains(event.id);
+  }
+
   List<AiEvent> get visibleUnacknowledgedEvents {
     return filteredEvents.where((event) => !event.isAcknowledged).toList();
   }
@@ -176,6 +189,7 @@ class NotificationViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await _loadCurrentUserRole();
       _events = await _eventService.fetchEvents(limit: 100);
     } catch (error) {
       _errorMessage = error.toString();
@@ -323,6 +337,27 @@ class NotificationViewModel extends ChangeNotifier {
     }
   }
 
+  Future<void> deleteEvent(AiEvent event) async {
+    if (!canDeleteEvents || _deletingEventIds.contains(event.id)) {
+      return;
+    }
+
+    _deletingEventIds.add(event.id);
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _eventService.deleteEvent(event.id);
+      _events = _events.where((existing) => existing.id != event.id).toList();
+    } catch (error) {
+      _errorMessage = error.toString();
+      debugPrint('Error deleting notification: $error');
+    } finally {
+      _deletingEventIds.remove(event.id);
+      notifyListeners();
+    }
+  }
+
   AlertSeverity severityFor(String eventType) {
     return switch (eventType) {
       'fall_detected' ||
@@ -333,6 +368,26 @@ class NotificationViewModel extends ChangeNotifier {
       'camera_offline' => AlertSeverity.critical,
       'unknown_person' => AlertSeverity.warning,
       _ => AlertSeverity.info,
+    };
+  }
+
+  Future<void> _loadCurrentUserRole() async {
+    _currentUserRole = _normalizeRole(await _tokenService.getCurrentUserRole());
+  }
+
+  String? _normalizeRole(String? role) {
+    final value = role?.trim().toLowerCase().replaceAll('-', '_');
+
+    return switch (value) {
+      'owner' || 'admin' || 'administrator' => 'owner',
+      'manager' || 'operator' => 'manager',
+      'normal_user' ||
+      'normal user' ||
+      'member' ||
+      'guest' ||
+      'resident' ||
+      'user' => 'normal_user',
+      _ => value,
     };
   }
 

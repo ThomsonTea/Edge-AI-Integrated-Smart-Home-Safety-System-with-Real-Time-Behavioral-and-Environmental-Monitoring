@@ -13,6 +13,7 @@ from app.models.event import AIEvent
 from app.models.profile import Profile
 from app.services.ai_event_service import create_ai_event
 from app.services.notification_service import notification_payload_for_event
+from app.services.user_service import is_manager, is_owner
 
 router = APIRouter()
 
@@ -90,6 +91,14 @@ def _ensure_event_access(user: Profile, event: AIEvent, action: str) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Not authorized to {action} this event",
+        )
+
+
+def _ensure_event_delete_permission(user: Profile) -> None:
+    if not (is_owner(user) or is_manager(user)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only owner or manager can delete events",
         )
 
 
@@ -338,3 +347,31 @@ def acknowledge_event(
     db.refresh(event)
 
     return _event_to_response(event)
+
+
+@router.delete("/{event_id}")
+def delete_ai_event(
+    event_id: int = Path(..., ge=1),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+    _ensure_event_delete_permission(user)
+
+    event = db.query(AIEvent).filter(AIEvent.id == event_id).first()
+
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not found",
+        )
+
+    _ensure_event_access(user=user, event=event, action="delete")
+
+    db.delete(event)
+    db.commit()
+
+    return {"message": "Event deleted successfully"}

@@ -10,16 +10,22 @@ class GroupedAlertList extends StatelessWidget {
   final List<AlertGroup> groups;
   final AlertSeverity Function(String eventType) severityFor;
   final bool Function(AiEvent event) isAcknowledging;
+  final bool Function(AiEvent event) isDeleting;
+  final bool canDeleteEvents;
   final ValueChanged<AiEvent> onEventTap;
   final ValueChanged<AiEvent> onAcknowledge;
+  final ValueChanged<AiEvent> onDelete;
 
   const GroupedAlertList({
     super.key,
     required this.groups,
     required this.severityFor,
     required this.isAcknowledging,
+    required this.isDeleting,
+    required this.canDeleteEvents,
     required this.onEventTap,
     required this.onAcknowledge,
+    required this.onDelete,
   });
 
   @override
@@ -40,8 +46,11 @@ class GroupedAlertList extends StatelessWidget {
               event: event,
               severity: severityFor(event.eventType),
               isAcknowledging: isAcknowledging(event),
+              isDeleting: isDeleting(event),
+              canDelete: canDeleteEvents,
               onTap: () => onEventTap(event),
               onAcknowledge: () => onAcknowledge(event),
+              onDelete: () => onDelete(event),
             ),
             const SizedBox(height: AppSpacing.md),
           ],

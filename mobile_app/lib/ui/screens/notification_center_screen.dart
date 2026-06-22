@@ -396,12 +396,49 @@ class _AlertCenterSections extends StatelessWidget {
             groups: recentGroups,
             severityFor: viewModel.severityFor,
             isAcknowledging: viewModel.isAcknowledging,
+            isDeleting: viewModel.isDeleting,
+            canDeleteEvents: viewModel.canDeleteEvents,
             onEventTap: onEventTap,
             onAcknowledge: viewModel.acknowledgeEvent,
+            onDelete: (event) => _confirmDeleteEvent(context, viewModel, event),
           ),
         ],
       ],
     );
+  }
+
+  Future<void> _confirmDeleteEvent(
+    BuildContext context,
+    NotificationViewModel viewModel,
+    AiEvent event,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete this event?'),
+          content: const Text('This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await viewModel.deleteEvent(event);
+    }
   }
 }
 

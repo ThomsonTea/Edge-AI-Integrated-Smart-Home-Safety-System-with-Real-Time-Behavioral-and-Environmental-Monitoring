@@ -150,6 +150,29 @@ class EventService {
     );
   }
 
+  Future<String> deleteEvent(int id) async {
+    _validateEventId(id);
+
+    final response = await _delete(Uri.parse('$baseUrl/ai_events/$id'));
+
+    if (response.statusCode == 200) {
+      final decoded = _decodeJson(response);
+
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message']?.toString();
+        if (message != null && message.isNotEmpty) {
+          return message;
+        }
+      }
+
+      return 'Event deleted successfully';
+    }
+
+    throw Exception(
+      _errorMessage(fallback: 'Failed to delete event', response: response),
+    );
+  }
+
   Future<http.Response> _get(Uri uri) async {
     final headers = await _authorizedHeaders();
 
@@ -165,6 +188,16 @@ class EventService {
 
     try {
       return await _client.put(uri, headers: headers, body: body);
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
+  Future<http.Response> _delete(Uri uri) async {
+    final headers = await _authorizedHeaders();
+
+    try {
+      return await _client.delete(uri, headers: headers);
     } catch (e) {
       throw Exception('Network error: $e');
     }
