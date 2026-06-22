@@ -56,6 +56,9 @@ backend/models/insightface/
 backend/storage/alerts/*
 !backend/storage/alerts/.gitkeep
 
+backend/storage/profile_picture/*
+!backend/storage/profile_picture/.gitkeep
+
 # ------------------------------------------
 # 4. mobile_app (Flutter / Dart)
 # ------------------------------------------
