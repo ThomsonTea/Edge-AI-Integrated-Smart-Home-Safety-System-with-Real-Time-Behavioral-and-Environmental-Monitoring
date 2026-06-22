@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from passlib.context import CryptContext
 from app.api.dev.api import api_router
 from app.services.shared_camera import camera_service
+from app.services.sensor_service import sensor_service
 
 app = FastAPI(title="Smart Home Security API")
 
@@ -36,6 +37,7 @@ app.include_router(api_router, prefix="/api/dev")
 def start_camera_services():
     camera_service.start_camera_loop()
     camera_service.start_ai_detection_loop()
+    sensor_service.start()
 
 @app.get("/")
 def read_root():
