@@ -1,156 +1,192 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../domain/models/dashboard_summary.dart';
+import '../../domain/models/analytics_models.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 class EventTrendChart extends StatelessWidget {
   final List<EventTrendPoint> points;
+  final Set<String> selectedEventTypes;
 
-  const EventTrendChart({super.key, required this.points});
+  const EventTrendChart({
+    super.key,
+    required this.points,
+    required this.selectedEventTypes,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final chartPoints = points
+        .where(
+          (point) => selectedEventTypes.any(
+            (eventType) => point.countFor(eventType) > 0,
+          ),
+        )
+        .toList();
 
-    if (points.isEmpty) {
-      return const _EmptyChart();
-    }
-
-    final maxCount = points
-        .map((point) => point.count)
-        .fold<int>(0, (max, count) => count > max ? count : max);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AI Events Over Time',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              height: AppSpacing.chartHeight,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.45,
-                  ),
-                  borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: points
-                        .map(
-                          (point) => Expanded(
-                            child: _TrendBar(
-                              point: point,
-                              maxCount: maxCount == 0 ? 1 : maxCount,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-            ),
-          ],
+    if (points.isEmpty || chartPoints.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Text(
+          'No selected security event trends in this range.',
+          style: AppTextStyles.body.copyWith(
+            color: colorScheme.onSurfaceVariant,
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _TrendBar extends StatelessWidget {
-  final EventTrendPoint point;
-  final int maxCount;
-
-  const _TrendBar({required this.point, required this.maxCount});
-
-  @override
-  Widget build(BuildContext context) {
-    final heightFactor = point.count == 0 ? 0.04 : point.count / maxCount;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            point.count.toString(),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Flexible(
-            child: FractionallySizedBox(
-              heightFactor: heightFactor.clamp(0.04, 1.0),
-              alignment: Alignment.bottomCenter,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(AppSpacing.sm),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            _shortLabel(point.label),
-            style: Theme.of(context).textTheme.bodySmall,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _shortLabel(String value) {
-    if (value.length >= 10) {
-      return value.substring(5);
+      );
     }
 
-    return value;
-  }
-}
+    final maxY = _maxY(points);
 
-class _EmptyChart extends StatelessWidget {
-  const _EmptyChart();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AI Events Over Time',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Icon(
-                  Icons.bar_chart,
-                  color: Theme.of(context).colorScheme.primary,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: AppSpacing.chartHeight,
+          child: LineChart(
+            LineChartData(
+              minY: 0,
+              maxY: maxY,
+              gridData: FlGridData(
+                drawVerticalLine: false,
+                getDrawingHorizontalLine: (value) =>
+                    FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
+              ),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                const Expanded(
-                  child: Text('No event trend data for the selected filters.'),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
                 ),
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 30,
+                    getTitlesWidget: (value, meta) => Text(
+                      value.toInt().toString(),
+                      style: AppTextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+                bottomTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+              ),
+              lineBarsData: [
+                for (final eventType in selectedEventTypes)
+                  _line(
+                    points,
+                    eventType,
+                    _colorForEventType(context, eventType),
+                  ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Wrap(
+          spacing: AppSpacing.md,
+          runSpacing: AppSpacing.xs,
+          children: [
+            for (final eventType in selectedEventTypes)
+              _LegendDot(
+                label: _labelForEventType(eventType),
+                color: _colorForEventType(context, eventType),
+              ),
           ],
         ),
-      ),
+      ],
+    );
+  }
+
+  LineChartBarData _line(
+    List<EventTrendPoint> values,
+    String eventType,
+    Color color,
+  ) {
+    return LineChartBarData(
+      spots: [
+        for (var index = 0; index < values.length; index++)
+          FlSpot(
+            index.toDouble(),
+            values[index].countFor(eventType).toDouble(),
+          ),
+      ],
+      color: color,
+      barWidth: 2.5,
+      isCurved: true,
+      preventCurveOverShooting: true,
+      dotData: const FlDotData(show: false),
+      belowBarData: BarAreaData(show: false),
+    );
+  }
+
+  double _maxY(List<EventTrendPoint> values) {
+    var maxValue = 1;
+    for (final point in values) {
+      for (final eventType in selectedEventTypes) {
+        final value = point.countFor(eventType);
+        if (value > maxValue) maxValue = value;
+      }
+    }
+
+    return maxValue + 1;
+  }
+
+  Color _colorForEventType(BuildContext context, String eventType) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return switch (eventType) {
+      'known_person' => AppColors.success,
+      'unknown_person' => AppColors.warning,
+      'fall_detected' => colorScheme.error,
+      'prolonged_inactivity' => AppColors.danger,
+      'gas_alert' => AppColors.warningDark,
+      'high_temperature' => AppColors.dangerDark,
+      'sensor_offline' => colorScheme.primary,
+      _ => colorScheme.primary,
+    };
+  }
+
+  String _labelForEventType(String eventType) {
+    return switch (eventType) {
+      'known_person' => 'Known Person',
+      'unknown_person' => 'Unknown Person',
+      'fall_detected' => 'Fall',
+      'prolonged_inactivity' => 'Inactivity',
+      'gas_alert' => 'Gas',
+      'high_temperature' => 'High Temp',
+      'sensor_offline' => 'Sensor Offline',
+      _ => eventType,
+    };
+  }
+}
+
+class _LegendDot extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _LegendDot({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: AppSpacing.sm,
+          height: AppSpacing.sm,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: AppSpacing.xs),
+        Text(label, style: AppTextStyles.caption),
+      ],
     );
   }
 }

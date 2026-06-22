@@ -5,27 +5,32 @@ import '../../domain/models/analytics_models.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
+import '../../viewmodels/analytics_viewmodel.dart';
 
 class SensorTrendChart extends StatelessWidget {
   final List<SensorTrendPoint> points;
+  final Set<SensorMetric> selectedMetrics;
 
-  const SensorTrendChart({super.key, required this.points});
+  const SensorTrendChart({
+    super.key,
+    required this.points,
+    required this.selectedMetrics,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final chartPoints = points
         .where(
-          (point) =>
-              point.temperature != null ||
-              point.humidity != null ||
-              point.gas != null,
+          (point) => selectedMetrics.any(
+            (metric) => _valueForMetric(point, metric) != null,
+          ),
         )
         .toList();
 
     if (chartPoints.isEmpty) {
       return const _ChartEmptyState(
-        message: 'No sensor readings in this range.',
+        message: 'No selected sensor readings in this range.',
       );
     }
 
@@ -70,21 +75,13 @@ class SensorTrendChart extends StatelessWidget {
                 ),
               ),
               lineBarsData: [
-                _line(
-                  chartPoints,
-                  (point) => point.temperature,
-                  colorScheme.primary,
-                ),
-                _line(
-                  chartPoints,
-                  (point) => point.humidity,
-                  AppColors.success,
-                ),
-                _line(
-                  chartPoints,
-                  (point) => point.gas?.toDouble(),
-                  AppColors.warning,
-                ),
+                for (final metric in SensorMetric.values)
+                  if (selectedMetrics.contains(metric))
+                    _line(
+                      chartPoints,
+                      (point) => _valueForMetric(point, metric),
+                      _colorForMetric(context, metric),
+                    ),
               ],
             ),
           ),
@@ -94,9 +91,12 @@ class SensorTrendChart extends StatelessWidget {
           spacing: AppSpacing.md,
           runSpacing: AppSpacing.xs,
           children: [
-            _LegendDot(label: 'Temperature', color: colorScheme.primary),
-            const _LegendDot(label: 'Humidity', color: AppColors.success),
-            const _LegendDot(label: 'Gas', color: AppColors.warning),
+            for (final metric in SensorMetric.values)
+              if (selectedMetrics.contains(metric))
+                _LegendDot(
+                  label: _labelForMetric(metric),
+                  color: _colorForMetric(context, metric),
+                ),
           ],
         ),
       ],
@@ -130,16 +130,38 @@ class SensorTrendChart extends StatelessWidget {
   double _maxY(List<SensorTrendPoint> values) {
     var maxValue = 10.0;
     for (final point in values) {
-      final candidates = [
-        point.temperature,
-        point.humidity,
-        point.gas?.toDouble(),
-      ].whereType<double>();
+      final candidates = selectedMetrics
+          .map((metric) => _valueForMetric(point, metric))
+          .whereType<double>();
       for (final value in candidates) {
         if (value > maxValue) maxValue = value;
       }
     }
     return maxValue * 1.15;
+  }
+
+  double? _valueForMetric(SensorTrendPoint point, SensorMetric metric) {
+    return switch (metric) {
+      SensorMetric.temperature => point.temperature,
+      SensorMetric.humidity => point.humidity,
+      SensorMetric.gas => point.gas?.toDouble(),
+    };
+  }
+
+  Color _colorForMetric(BuildContext context, SensorMetric metric) {
+    return switch (metric) {
+      SensorMetric.temperature => Theme.of(context).colorScheme.primary,
+      SensorMetric.humidity => AppColors.success,
+      SensorMetric.gas => AppColors.warning,
+    };
+  }
+
+  String _labelForMetric(SensorMetric metric) {
+    return switch (metric) {
+      SensorMetric.temperature => 'Temperature',
+      SensorMetric.humidity => 'Humidity',
+      SensorMetric.gas => 'Gas',
+    };
   }
 }
 

@@ -65,6 +65,29 @@ class AnalyticsService {
     );
   }
 
+  Future<EventTrendAnalytics> fetchEventTrendAnalytics(String range) async {
+    final response = await _get(
+      Uri.parse(
+        '$baseUrl/analytics/event-trends',
+      ).replace(queryParameters: {'range': range}),
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = _decodeJson(response);
+      if (decoded is! Map<String, dynamic>) {
+        throw Exception('Unexpected event trend analytics response format');
+      }
+      return EventTrendAnalytics.fromJson(decoded);
+    }
+
+    throw Exception(
+      _errorMessage(
+        fallback: 'Failed to fetch event trend analytics',
+        response: response,
+      ),
+    );
+  }
+
   Future<http.Response> _get(Uri uri) async {
     final headers = await _authorizedHeaders();
 

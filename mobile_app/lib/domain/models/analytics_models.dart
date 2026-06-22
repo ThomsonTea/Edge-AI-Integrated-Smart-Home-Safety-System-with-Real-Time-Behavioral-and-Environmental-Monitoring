@@ -89,3 +89,59 @@ class EventAnalytics {
 
   bool get hasActivity => counts.any((item) => item.count > 0);
 }
+
+class EventTrendPoint {
+  final String label;
+  final DateTime? timestamp;
+  final Map<String, int> countsByEventType;
+
+  const EventTrendPoint({
+    required this.label,
+    required this.timestamp,
+    required this.countsByEventType,
+  });
+
+  factory EventTrendPoint.fromJson(Map<String, dynamic> json) {
+    final counts = <String, int>{};
+    for (final entry in json.entries) {
+      if (entry.key == 'label' || entry.key == 'timestamp') continue;
+      counts[entry.key] = SensorTrendPoint._intFromJson(entry.value) ?? 0;
+    }
+
+    return EventTrendPoint(
+      label: json['label']?.toString() ?? '',
+      timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? ''),
+      countsByEventType: counts,
+    );
+  }
+
+  int countFor(String eventType) => countsByEventType[eventType] ?? 0;
+}
+
+class EventTrendAnalytics {
+  final String range;
+  final String bucket;
+  final List<EventTrendPoint> points;
+
+  const EventTrendAnalytics({
+    required this.range,
+    required this.bucket,
+    required this.points,
+  });
+
+  const EventTrendAnalytics.empty()
+    : range = '7d',
+      bucket = 'daily',
+      points = const [];
+
+  factory EventTrendAnalytics.fromJson(Map<String, dynamic> json) {
+    return EventTrendAnalytics(
+      range: json['range']?.toString() ?? '7d',
+      bucket: json['bucket']?.toString() ?? 'daily',
+      points: (json['points'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(EventTrendPoint.fromJson)
+          .toList(),
+    );
+  }
+}

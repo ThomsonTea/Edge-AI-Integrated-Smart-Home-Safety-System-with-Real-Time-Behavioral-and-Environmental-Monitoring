@@ -35,4 +35,25 @@ void main() {
     expect(analytics.counts.first.count, 12);
     expect(analytics.hasActivity, isTrue);
   });
+
+  test('parses event trend analytics response', () {
+    final analytics = EventTrendAnalytics.fromJson({
+      'range': '7d',
+      'bucket': 'daily',
+      'points': [
+        {
+          'label': 'Mon',
+          'timestamp': '2026-06-22T00:00:00Z',
+          'known_person': 5,
+          'unknown_person': 1,
+        },
+      ],
+    });
+
+    expect(analytics.range, '7d');
+    expect(analytics.bucket, 'daily');
+    expect(analytics.points.single.label, 'Mon');
+    expect(analytics.points.single.countFor('known_person'), 5);
+    expect(analytics.points.single.countFor('gas_alert'), 0);
+  });
 }
