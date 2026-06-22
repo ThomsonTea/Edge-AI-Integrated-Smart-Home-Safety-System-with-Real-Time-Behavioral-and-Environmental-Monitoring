@@ -4,6 +4,8 @@ import '../../domain/models/sensor_snapshot.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 
+const double _metricTileHeight = 86;
+
 class EnvironmentSnapshotCard extends StatelessWidget {
   final SensorSnapshot snapshot;
   final bool isLoading;
@@ -24,34 +26,33 @@ class EnvironmentSnapshotCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            CircleAvatar(
-              backgroundColor: colorScheme.primaryContainer,
-              foregroundColor: colorScheme.onPrimaryContainer,
-              child: const Icon(Icons.eco_outlined),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: colorScheme.primaryContainer,
+                  foregroundColor: colorScheme.onPrimaryContainer,
+                  child: const Icon(Icons.eco_outlined, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
                     'Environment Snapshot',
                     style: AppTextStyles.sectionTitle,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (isLoading)
-                    const _EnvironmentLoadingState()
-                  else if (!snapshot.isConnected ||
-                      !snapshot.hasCompleteReadings)
-                    _EnvironmentOfflineState(errorMessage: errorMessage)
-                  else
-                    _EnvironmentReadings(snapshot: snapshot),
-                ],
-              ),
+                ),
+              ],
             ),
+            const SizedBox(height: AppSpacing.md),
+            if (isLoading)
+              const _EnvironmentLoadingState()
+            else if (!snapshot.isConnected || !snapshot.hasCompleteReadings)
+              _EnvironmentOfflineState(errorMessage: errorMessage)
+            else
+              _EnvironmentReadings(snapshot: snapshot),
           ],
         ),
       ),
@@ -72,10 +73,12 @@ class _EnvironmentLoadingState extends StatelessWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         const SizedBox(width: AppSpacing.sm),
-        Text(
-          'Loading sensor data...',
-          style: AppTextStyles.body.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
+        Expanded(
+          child: Text(
+            'Loading sensor data...',
+            style: AppTextStyles.body.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -172,7 +175,7 @@ class _EnvironmentReadings extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.md),
         _LastUpdatedSection(
           exactTimestamp: _exactTimestamp(context, snapshot.lastUpdated),
           relativeTimestamp: _relativeTime(snapshot.lastUpdated),
@@ -306,6 +309,7 @@ class _ReadingTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
+      height: _metricTileHeight,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
@@ -324,7 +328,10 @@ class _ReadingTile extends StatelessWidget {
                   label,
                   style: AppTextStyles.caption.copyWith(
                     color: colorScheme.onSurfaceVariant,
+                    fontSize: 11,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -334,7 +341,10 @@ class _ReadingTile extends StatelessWidget {
             value,
             style: AppTextStyles.sectionTitle.copyWith(
               color: colorScheme.onSurface,
+              fontSize: 17,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

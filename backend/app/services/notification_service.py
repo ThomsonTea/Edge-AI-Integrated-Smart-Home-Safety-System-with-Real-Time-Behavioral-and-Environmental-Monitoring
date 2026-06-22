@@ -15,6 +15,8 @@ _broadcast_lock = threading.Lock()
 CRITICAL_EVENTS = {
     "fire_alert",
     "gas_alert",
+    "high_temperature",
+    "sensor_offline",
     "system_error",
     "fall_detected",
     "prolonged_inactivity",
@@ -42,6 +44,8 @@ def message_for_event_type(event_type: str | None) -> str:
         "unknown_person": "Unknown person detected at your premise.",
         "fire_alert": "Fire alert detected. Check your premise immediately.",
         "gas_alert": "Gas alert detected. Check your premise immediately.",
+        "high_temperature": "High temperature detected. Check your premise immediately.",
+        "sensor_offline": "Environmental sensor is offline.",
         "camera_offline": "Camera is offline.",
         "system_error": "System error detected.",
         "fall_detected": "Possible fall detected. Check your premise immediately.",

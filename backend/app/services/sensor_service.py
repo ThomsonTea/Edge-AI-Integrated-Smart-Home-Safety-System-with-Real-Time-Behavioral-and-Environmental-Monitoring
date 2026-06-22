@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 
 from app.db.database import SessionLocal
 from app.models.sensor import SensorReading
+from app.services.ai_event_service import create_ai_event
 
 load_dotenv()
 
@@ -23,6 +24,14 @@ DEFAULT_SENSOR_PORT = "/dev/ttyUSB0"
 DEFAULT_SENSOR_BAUD_RATE = 9600
 SERIAL_RETRY_SECONDS = 5
 DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS = 60
+DEFAULT_GAS_ALERT_THRESHOLD = 900
+DEFAULT_TEMPERATURE_ALERT_THRESHOLD = 40.0
+DEFAULT_SENSOR_OFFLINE_SECONDS = 30
+DEFAULT_ENVIRONMENT_ALERT_COOLDOWN_SECONDS = 120
+
+GAS_ALERT = "gas_alert"
+HIGH_TEMPERATURE = "high_temperature"
+SENSOR_OFFLINE = "sensor_offline"
 
 
 def _bool_from_env(name: str, default: bool) -> bool:
@@ -35,6 +44,33 @@ def _bool_from_env(name: str, default: bool) -> bool:
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _int_from_env(name: str, default: int) -> int:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+
+    try:
+        value = int(raw_value)
+        if value < 0:
+            raise ValueError
+        return value
+    except ValueError:
+        logger.warning("[SENSOR] Invalid %s=%s; using default %s", name, raw_value, default)
+        return default
+
+
+def _float_from_env(name: str, default: float) -> float:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+
+    try:
+        return float(raw_value)
+    except ValueError:
+        logger.warning("[SENSOR] Invalid %s=%s; using default %s", name, raw_value, default)
+        return default
 
 
 def _isoformat_z(value: datetime | None) -> str | None:
@@ -56,6 +92,10 @@ class SensorService:
         premise_id: int | None = None,
         db_session_factory: Callable[[], Any] = SessionLocal,
         save_interval_seconds: int | None = None,
+        gas_alert_threshold: int | None = None,
+        temperature_alert_threshold: float | None = None,
+        sensor_offline_seconds: int | None = None,
+        environment_alert_cooldown_seconds: int | None = None,
     ) -> None:
         self.port = port or os.getenv("SENSOR_SERIAL_PORT", DEFAULT_SENSOR_PORT)
         self.baud_rate = baud_rate or int(
@@ -73,12 +113,40 @@ class SensorService:
             if save_interval_seconds is not None
             else self._save_interval_seconds_from_env()
         )
+        self._gas_alert_threshold = (
+            gas_alert_threshold
+            if gas_alert_threshold is not None
+            else _int_from_env("GAS_ALERT_THRESHOLD", DEFAULT_GAS_ALERT_THRESHOLD)
+        )
+        self._temperature_alert_threshold = (
+            temperature_alert_threshold
+            if temperature_alert_threshold is not None
+            else _float_from_env(
+                "TEMPERATURE_ALERT_THRESHOLD",
+                DEFAULT_TEMPERATURE_ALERT_THRESHOLD,
+            )
+        )
+        self._sensor_offline_seconds = (
+            sensor_offline_seconds
+            if sensor_offline_seconds is not None
+            else _int_from_env("SENSOR_OFFLINE_SECONDS", DEFAULT_SENSOR_OFFLINE_SECONDS)
+        )
+        self._environment_alert_cooldown_seconds = (
+            environment_alert_cooldown_seconds
+            if environment_alert_cooldown_seconds is not None
+            else _int_from_env(
+                "ENVIRONMENT_ALERT_COOLDOWN_SECONDS",
+                DEFAULT_ENVIRONMENT_ALERT_COOLDOWN_SECONDS,
+            )
+        )
 
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._persist_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._last_saved_at: datetime | None = None
+        self._last_alert_at: dict[str, datetime] = {}
+        self._disconnected_since: datetime | None = None
         self._latest: dict[str, Any] = {
             "status": "disabled" if not self.enabled else "disconnected",
             "temperature": None,
@@ -141,6 +209,8 @@ class SensorService:
                     "last_updated": _utc_now(),
                 }
             )
+        self._disconnected_since = None
+        self._evaluate_environment_alerts(parsed)
         return True
 
     @staticmethod
@@ -213,6 +283,11 @@ class SensorService:
     def _set_status(self, status: str) -> None:
         with self._lock:
             self._latest["status"] = status
+
+        if status == "connected":
+            self._disconnected_since = None
+        elif status == "disconnected" and self.enabled:
+            self._evaluate_sensor_offline()
 
     def _persistence_loop(self) -> None:
         while not self._stop_event.wait(5):
@@ -289,6 +364,117 @@ class SensorService:
         except (InvalidOperation, TypeError, ValueError):
             logger.warning("[SENSOR] Latest sensor values are invalid; skipping persistence")
             return None
+
+    def _evaluate_environment_alerts(
+        self,
+        reading: dict[str, float],
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        if not self.enabled:
+            return
+
+        if self.premise_id is None:
+            logger.warning(
+                "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping environmental alerts"
+            )
+            return
+
+        now = now or _utc_now()
+
+        gas = reading.get("gas")
+        temperature = reading.get("temperature")
+
+        if gas is not None and gas >= self._gas_alert_threshold:
+            confidence = self._threshold_confidence(gas, self._gas_alert_threshold)
+            self._create_environment_alert(
+                GAS_ALERT,
+                confidence_score=confidence,
+                now=now,
+            )
+
+        if (
+            temperature is not None
+            and temperature >= self._temperature_alert_threshold
+        ):
+            confidence = self._threshold_confidence(
+                temperature,
+                self._temperature_alert_threshold,
+            )
+            self._create_environment_alert(
+                HIGH_TEMPERATURE,
+                confidence_score=confidence,
+                now=now,
+            )
+
+    def _evaluate_sensor_offline(self, *, now: datetime | None = None) -> None:
+        if not self.enabled:
+            return
+
+        now = now or _utc_now()
+        if self._disconnected_since is None:
+            self._disconnected_since = now
+            return
+
+        elapsed = (now - self._disconnected_since).total_seconds()
+        if elapsed < self._sensor_offline_seconds:
+            return
+
+        self._create_environment_alert(
+            SENSOR_OFFLINE,
+            confidence_score=100,
+            now=now,
+        )
+
+    def _create_environment_alert(
+        self,
+        event_type: str,
+        *,
+        confidence_score: float,
+        now: datetime,
+    ) -> bool:
+        if self.premise_id is None:
+            logger.warning(
+                "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping %s",
+                event_type,
+            )
+            return False
+
+        last_alert_at = self._last_alert_at.get(event_type)
+        if last_alert_at is not None:
+            elapsed = (now - last_alert_at).total_seconds()
+            if elapsed < self._environment_alert_cooldown_seconds:
+                return False
+
+        db = self._db_session_factory()
+        try:
+            create_ai_event(
+                db,
+                premise_id=self.premise_id,
+                event_type=event_type,
+                confidence_score=round(min(max(confidence_score, 0), 100), 2),
+                image_path=None,
+            )
+            self._last_alert_at[event_type] = now
+            logger.warning(
+                "[SENSOR] Environmental alert created: type=%s premise_id=%s",
+                event_type,
+                self.premise_id,
+            )
+            return True
+        except Exception:
+            logger.exception("[SENSOR] Failed to create %s AI event", event_type)
+            return False
+        finally:
+            db.close()
+
+    @staticmethod
+    def _threshold_confidence(value: float, threshold: float) -> float:
+        if threshold <= 0:
+            return 100
+
+        ratio = value / threshold
+        return min(100, max(50, ratio * 50))
 
     def _read_loop(self) -> None:
         while not self._stop_event.is_set():
