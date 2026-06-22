@@ -55,6 +55,7 @@ class NotificationViewModel extends ChangeNotifier {
   List<AiEvent> _events = const [];
   bool _isLoading = false;
   bool _isAcknowledgingVisible = false;
+  bool _isDeletingVisible = false;
   String? _errorMessage;
   String _searchQuery = '';
   AlertFilter _selectedFilter = AlertFilter.all;
@@ -68,6 +69,7 @@ class NotificationViewModel extends ChangeNotifier {
   List<AiEvent> get events => _events;
   bool get isLoading => _isLoading;
   bool get isAcknowledgingVisible => _isAcknowledgingVisible;
+  bool get isDeletingVisible => _isDeletingVisible;
   String? get errorMessage => _errorMessage;
   String get searchQuery => _searchQuery;
   AlertFilter get selectedFilter => _selectedFilter;
@@ -176,6 +178,7 @@ class NotificationViewModel extends ChangeNotifier {
   }
 
   int get visibleUnacknowledgedCount => visibleUnacknowledgedEvents.length;
+  int get visibleEventCount => filteredEvents.length;
 
   bool get visibleUnacknowledgedIncludesCritical {
     return visibleUnacknowledgedEvents.any(
@@ -354,6 +357,34 @@ class NotificationViewModel extends ChangeNotifier {
       debugPrint('Error deleting notification: $error');
     } finally {
       _deletingEventIds.remove(event.id);
+      notifyListeners();
+    }
+  }
+
+  Future<void> deleteVisibleEvents() async {
+    if (!canDeleteEvents || _isDeletingVisible) return;
+
+    final visibleEvents = filteredEvents;
+    if (visibleEvents.isEmpty) return;
+
+    final visibleIds = visibleEvents.map((event) => event.id).toList();
+    _isDeletingVisible = true;
+    _deletingEventIds.addAll(visibleIds);
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      await _eventService.deleteEvents(visibleIds);
+      final deletedIds = visibleIds.toSet();
+      _events = _events
+          .where((existing) => !deletedIds.contains(existing.id))
+          .toList();
+    } catch (error) {
+      _errorMessage = error.toString();
+      debugPrint('Error deleting visible notifications: $error');
+    } finally {
+      _isDeletingVisible = false;
+      _deletingEventIds.removeAll(visibleIds);
       notifyListeners();
     }
   }

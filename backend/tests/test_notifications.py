@@ -10,7 +10,9 @@ from passlib.context import CryptContext
 
 from app.api.dev.api import api_router
 from app.api.dev.endpoints.ai_events import (
+    BulkDeleteEventsRequest,
     TEST_EVENT_TYPES,
+    bulk_delete_ai_events,
     delete_ai_event,
     _ensure_admin_if_role_exists,
 )
@@ -70,6 +72,15 @@ class FakeAIEventDeleteQuery:
 
     def first(self):
         return self.result
+
+    def all(self):
+        if self.result is None:
+            return []
+
+        if isinstance(self.result, list):
+            return self.result
+
+        return [self.result]
 
 
 class FakeAIEventDeleteDb:
@@ -170,6 +181,108 @@ class AIEventDeleteEndpointTests(unittest.TestCase):
             )
 
         self.assertEqual(context.exception.status_code, 404)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_owner_bulk_deletes_own_premise_events(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        events = [
+            SimpleNamespace(id=10, premise_id=7),
+            SimpleNamespace(id=11, premise_id=7),
+        ]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        response = bulk_delete_ai_events(
+            request=BulkDeleteEventsRequest(event_ids=[10, 11]),
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        self.assertEqual(response["message"], "Events deleted successfully")
+        self.assertEqual(response["deleted_count"], 2)
+        self.assertEqual(db.deleted, events[-1])
+        self.assertTrue(db.committed)
+
+    def test_manager_bulk_deletes_own_premise_events(self):
+        user = SimpleNamespace(id=1, group_type="manager", premise_id=7)
+        events = [
+            SimpleNamespace(id=10, premise_id=7),
+            SimpleNamespace(id=11, premise_id=7),
+        ]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        response = bulk_delete_ai_events(
+            request=BulkDeleteEventsRequest(event_ids=[10, 11]),
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        self.assertEqual(response["deleted_count"], 2)
+        self.assertTrue(db.committed)
+
+    def test_normal_user_cannot_bulk_delete_events(self):
+        user = SimpleNamespace(id=1, group_type="normal_user", premise_id=7)
+        events = [SimpleNamespace(id=10, premise_id=7)]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        with self.assertRaises(HTTPException) as context:
+            bulk_delete_ai_events(
+                request=BulkDeleteEventsRequest(event_ids=[10]),
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_bulk_delete_rejects_cross_premise_events(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        events = [
+            SimpleNamespace(id=10, premise_id=7),
+            SimpleNamespace(id=11, premise_id=8),
+        ]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        with self.assertRaises(HTTPException) as context:
+            bulk_delete_ai_events(
+                request=BulkDeleteEventsRequest(event_ids=[10, 11]),
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 403)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_bulk_delete_rejects_missing_events(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        events = [SimpleNamespace(id=10, premise_id=7)]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        with self.assertRaises(HTTPException) as context:
+            bulk_delete_ai_events(
+                request=BulkDeleteEventsRequest(event_ids=[10, 99]),
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 404)
+        self.assertIsNone(db.deleted)
+        self.assertFalse(db.committed)
+
+    def test_bulk_delete_rejects_empty_event_ids(self):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        db = FakeAIEventDeleteDb(user=user, event=[])
+
+        with self.assertRaises(HTTPException) as context:
+            bulk_delete_ai_events(
+                request=BulkDeleteEventsRequest(event_ids=[]),
+                current_user={"user_id": 1},
+                db=db,
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
         self.assertIsNone(db.deleted)
         self.assertFalse(db.committed)
 

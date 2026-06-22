@@ -133,6 +133,14 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             isLoading: _viewModel.isAcknowledgingVisible,
             onPressed: _confirmAcknowledgeVisible,
           ),
+          if (_viewModel.canDeleteEvents) ...[
+            const SizedBox(height: AppSpacing.sm),
+            _DeleteVisibleAction(
+              count: _viewModel.visibleEventCount,
+              isLoading: _viewModel.isDeletingVisible,
+              onPressed: _confirmDeleteVisible,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           if (_viewModel.events.isEmpty)
             const _EmptyNotificationState()
@@ -253,6 +261,39 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       await _viewModel.acknowledgeVisibleEvents();
     }
   }
+
+  Future<void> _confirmDeleteVisible() async {
+    final count = _viewModel.visibleEventCount;
+    if (count == 0) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete visible events?'),
+          content: Text('This will delete $count events and cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      await _viewModel.deleteVisibleEvents();
+    }
+  }
 }
 
 class _SearchAndDateFilterRow extends StatelessWidget {
@@ -360,6 +401,62 @@ class _AcknowledgeVisibleAction extends StatelessWidget {
                     : const Icon(Icons.done_all),
                 label: const Text('Acknowledge Visible'),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteVisibleAction extends StatelessWidget {
+  final int count;
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  const _DeleteVisibleAction({
+    required this.count,
+    required this.isLoading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colorScheme.errorContainer.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        border: Border.all(color: colorScheme.error.withValues(alpha: 0.28)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(Icons.delete_sweep_outlined, color: colorScheme.error),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                count == 0
+                    ? 'No visible events to delete'
+                    : '$count visible events selected by filters',
+                style: AppTextStyles.caption.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            FilledButton.tonalIcon(
+              onPressed: count == 0 || isLoading ? null : onPressed,
+              icon: isLoading
+                  ? const SizedBox(
+                      width: AppSpacing.lg,
+                      height: AppSpacing.lg,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
+              label: const Text('Delete Visible'),
             ),
           ],
         ),

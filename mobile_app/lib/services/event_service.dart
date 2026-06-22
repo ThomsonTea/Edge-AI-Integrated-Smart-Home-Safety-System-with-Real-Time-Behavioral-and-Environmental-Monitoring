@@ -173,6 +173,36 @@ class EventService {
     );
   }
 
+  Future<int> deleteEvents(List<int> ids) async {
+    final eventIds = ids.where((id) => id > 0).toSet().toList();
+    if (eventIds.isEmpty) {
+      throw ArgumentError.value(
+        ids,
+        'ids',
+        'At least one event id is required',
+      );
+    }
+
+    final response = await _delete(
+      Uri.parse('$baseUrl/ai_events/bulk'),
+      body: jsonEncode({'event_ids': eventIds}),
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = _decodeJson(response);
+
+      if (decoded is Map<String, dynamic>) {
+        return int.tryParse(decoded['deleted_count']?.toString() ?? '') ?? 0;
+      }
+
+      throw Exception('Unexpected delete response format');
+    }
+
+    throw Exception(
+      _errorMessage(fallback: 'Failed to delete events', response: response),
+    );
+  }
+
   Future<http.Response> _get(Uri uri) async {
     final headers = await _authorizedHeaders();
 
@@ -193,11 +223,11 @@ class EventService {
     }
   }
 
-  Future<http.Response> _delete(Uri uri) async {
+  Future<http.Response> _delete(Uri uri, {Object? body}) async {
     final headers = await _authorizedHeaders();
 
     try {
-      return await _client.delete(uri, headers: headers);
+      return await _client.delete(uri, headers: headers, body: body);
     } catch (e) {
       throw Exception('Network error: $e');
     }

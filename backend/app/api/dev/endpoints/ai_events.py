@@ -46,6 +46,15 @@ class AcknowledgeVisibleRequest(BaseModel):
     event_ids: List[int]
 
 
+class BulkDeleteEventsRequest(BaseModel):
+    event_ids: List[int]
+
+
+class BulkDeleteEventsResponse(BaseModel):
+    message: str
+    deleted_count: int
+
+
 def _get_current_profile(
     current_user: dict,
     db: Session,
@@ -285,6 +294,48 @@ def acknowledge_visible_events(
         db.refresh(event)
 
     return [_event_to_response(event) for event in events]
+
+
+@router.delete("/bulk", response_model=BulkDeleteEventsResponse)
+def bulk_delete_ai_events(
+    request: BulkDeleteEventsRequest,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_current_profile(
+        current_user=current_user,
+        db=db,
+    )
+    _ensure_event_delete_permission(user)
+
+    event_ids = sorted({event_id for event_id in request.event_ids if event_id > 0})
+    if not event_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="event_ids must contain at least one event id",
+        )
+
+    events = db.query(AIEvent).filter(AIEvent.id.in_(event_ids)).all()
+    found_ids = {event.id for event in events}
+    missing_ids = set(event_ids) - found_ids
+    if missing_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more events were not found",
+        )
+
+    for event in events:
+        _ensure_event_access(user=user, event=event, action="delete")
+
+    for event in events:
+        db.delete(event)
+
+    db.commit()
+
+    return {
+        "message": "Events deleted successfully",
+        "deleted_count": len(events),
+    }
 
 
 @router.get("/{event_id}", response_model=AIEventResponse)
