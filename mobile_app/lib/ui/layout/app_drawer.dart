@@ -61,10 +61,9 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
-          const Divider(),
-
-          const _DrawerSectionTitle("System Management"),
-          if (canManageUsers)
+          if (canManageUsers) ...[
+            const Divider(),
+            const _DrawerSectionTitle("System Management"),
             _DrawerItem(
               icon: Icons.group,
               label: "User Access Management",
@@ -73,24 +72,7 @@ class AppDrawer extends StatelessWidget {
                 Navigator.pushNamed(context, AppRoutes.userAccess);
               },
             ),
-
-          _DrawerItem(
-            icon: Icons.settings,
-            label: "Camera Configuration",
-            onTap: () {},
-          ),
-
-          _DrawerItem(
-            icon: Icons.smart_toy,
-            label: "AI Engine Settings",
-            onTap: () {},
-          ),
-
-          _DrawerItem(
-            icon: Icons.network_check,
-            label: "Diagnostics",
-            onTap: () {},
-          ),
+          ],
 
           const Divider(),
 

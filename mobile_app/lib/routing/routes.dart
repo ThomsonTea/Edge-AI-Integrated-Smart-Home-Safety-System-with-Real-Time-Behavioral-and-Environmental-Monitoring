@@ -4,15 +4,9 @@ class AppRoutes {
   static const home = '/home';
 
   // Drawer / secondary pages
-  static const alertHistory = '/alerts/history';
   static const eventDetail = '/alerts/detail';
   static const notificationCenter = '/notifications';
-  static const family = '/family';
-  static const cameraFeed = '/camera/feed';
-  static const cameraConfig = '/camera/config';
   static const analytics = '/analytics';
-  static const aiSettings = '/ai/settings';
-  static const diagnostics = '/diagnostics';
   static const profile = '/profile';
 
   static const userAccess = '/users';

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_spacing.dart';
-import '../../theme/app_text_styles.dart';
 import '../../viewmodels/camera_feed_viewmodel.dart';
 import '../widgets/camera_widget.dart';
 import '../widgets/screen_header.dart';
@@ -79,8 +78,6 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
             const SizedBox(height: AppSpacing.lg),
           ],
           CameraWidget(jwtToken: _viewModel.jwtToken),
-          const SizedBox(height: AppSpacing.lg),
-          const _FutureImplementationCard(),
         ],
       ),
     );
@@ -92,57 +89,6 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Camera Feed')),
       body: content,
-    );
-  }
-}
-
-class _FutureImplementationCard extends StatelessWidget {
-  const _FutureImplementationCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.info_outline,
-              color: colorScheme.primary,
-              size: AppSpacing.xl,
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Future Implementation',
-                    style: AppTextStyles.sectionTitle.copyWith(
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Multi-camera monitoring support is planned for future system expansion.',
-                    style: AppTextStyles.body.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

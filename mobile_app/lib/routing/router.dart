@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../ui/layout/bottom_nav_shell.dart';
 import '../ui/screens/analytics_screen.dart';
 import '../ui/screens/auth_gate_screen.dart';
-import '../ui/screens/camera_feed_screen.dart';
 import '../ui/screens/event_detail_screen.dart';
-import '../ui/screens/event_history_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/notification_center_screen.dart';
 import '../ui/screens/profile_screen.dart';
@@ -28,19 +26,9 @@ class AppRouter {
       case AppRoutes.home:
         return MaterialPageRoute(builder: (_) => const BottomNavShell());
 
-      case AppRoutes.alertHistory:
-        return MaterialPageRoute(
-          builder: (_) => const EventHistoryScreen(showAppBar: true),
-        );
-
       case AppRoutes.notificationCenter:
         return MaterialPageRoute(
           builder: (_) => const NotificationCenterScreen(showAppBar: true),
-        );
-
-      case AppRoutes.cameraFeed:
-        return MaterialPageRoute(
-          builder: (_) => const CameraFeedScreen(showAppBar: true),
         );
 
       case AppRoutes.analytics:
@@ -64,14 +52,6 @@ class AppRouter {
 
       case AppRoutes.userAccess:
         return MaterialPageRoute(builder: (_) => const UserAccessScreen());
-
-      case AppRoutes.aiSettings:
-        return MaterialPageRoute(
-          builder: (_) => Scaffold(
-            appBar: AppBar(title: const Text('AI Settings')),
-            body: const Center(child: Text('AI Settings')),
-          ),
-        );
 
       case AppRoutes.profile:
         return MaterialPageRoute(

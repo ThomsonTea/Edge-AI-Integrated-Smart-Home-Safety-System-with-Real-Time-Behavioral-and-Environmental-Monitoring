@@ -12,7 +12,6 @@ from app.services.image_upload_validation import (
 from app.services.user_service import UserService, is_owner, normalize_role
 from app.middleware.jwt_auth import verify_token
 
-router = APIRouter()
 users_router = APIRouter()
 
 
@@ -226,46 +225,3 @@ async def register_managed_user_face(
         "has_face_signature": bool(updated_profile.face_signature),
     }
 
-
-@router.get("/profiles")
-def get_profiles(
-    db: Session = Depends(database.get_db),
-    current_user: dict = Depends(verify_token)
-):
-    return list_users(db=db, current_user=current_user)
-
-
-@router.post("/register")
-def register(
-    userData: UserCreate,
-    db: Session = Depends(database.get_db),
-    current_user: dict = Depends(verify_token),
-):
-    return create_managed_user(
-        userData=userData,
-        db=db,
-        current_user=current_user,
-    )
-
-
-@router.delete("/profiles/{user_id}")
-def delete_profile(
-    user_id: int,
-    db: Session = Depends(database.get_db),
-    current_user: dict = Depends(verify_token)
-):
-    return delete_managed_user(
-        user_id=user_id,
-        db=db,
-        current_user=current_user,
-    )
-
-
-@router.get("/me")
-def get_current_user_data(
-    current_user: dict = Depends(verify_token)
-):
-    return {
-        "message": "Token is valid",
-        "user": current_user
-    }
