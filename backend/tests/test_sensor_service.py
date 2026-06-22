@@ -103,6 +103,24 @@ class SensorServiceTests(unittest.TestCase):
         self.assertFalse(service.enabled)
         self.assertEqual(service.get_latest()["status"], "disabled")
 
+    def test_save_interval_defaults_to_sixty_seconds(self):
+        with patch.dict("os.environ", {}, clear=True):
+            service = SensorService(enabled=False, premise_id=1)
+
+        self.assertEqual(service._save_interval_seconds, 60)
+
+    def test_save_interval_reads_environment_override(self):
+        with patch.dict("os.environ", {"SENSOR_SAVE_INTERVAL_SECONDS": "10"}):
+            service = SensorService(enabled=False, premise_id=1)
+
+        self.assertEqual(service._save_interval_seconds, 10)
+
+    def test_invalid_save_interval_uses_default(self):
+        with patch.dict("os.environ", {"SENSOR_SAVE_INTERVAL_SECONDS": "nope"}):
+            service = SensorService(enabled=False, premise_id=1)
+
+        self.assertEqual(service._save_interval_seconds, 60)
+
     def test_persist_latest_reading_saves_complete_connected_values(self):
         db = FakeDb()
         service = SensorService(
@@ -177,14 +195,14 @@ class SensorServiceTests(unittest.TestCase):
             enabled=False,
             premise_id=1,
             db_session_factory=lambda: db,
-            save_interval_seconds=60,
+            save_interval_seconds=10,
         )
         service.update_from_line("temperature=30.7,humidity=70,gas=966")
         now = datetime(2026, 6, 22, 12, 0, tzinfo=timezone.utc)
 
         self.assertTrue(service._persist_latest_reading(now=now))
         self.assertFalse(
-            service._persist_latest_reading(now=now + timedelta(seconds=59))
+            service._persist_latest_reading(now=now + timedelta(seconds=9))
         )
         self.assertEqual(len(db.added), 1)
 

@@ -51,19 +51,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: _viewModel.loadSummary,
+      onRefresh: _viewModel.refreshDashboard,
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
           _DashboardHeader(
             isLoading: _viewModel.isLoading,
-            onRefresh: _viewModel.loadSummary,
+            onRefresh: _viewModel.refreshDashboard,
           ),
           const SizedBox(height: AppSpacing.lg),
           if (_viewModel.errorMessage != null)
             _DashboardError(
               message: _viewModel.errorMessage!,
-              onRetry: _viewModel.loadSummary,
+              onRetry: _viewModel.refreshDashboard,
             )
           else ...[
             if (_viewModel.isEmpty) const _DashboardEmptyState(),
@@ -82,7 +82,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: AppSpacing.lg),
             TodaysActivityCard(summary: _viewModel.summary),
             const SizedBox(height: AppSpacing.lg),
-            const EnvironmentSnapshotCard(),
+            EnvironmentSnapshotCard(
+              snapshot: _viewModel.sensorSnapshot,
+              isLoading: _viewModel.isSensorLoading,
+              errorMessage: _viewModel.sensorErrorMessage,
+            ),
             const SizedBox(height: AppSpacing.lg),
             LatestDetectionCard(
               event: _viewModel.summary.latestDetection,

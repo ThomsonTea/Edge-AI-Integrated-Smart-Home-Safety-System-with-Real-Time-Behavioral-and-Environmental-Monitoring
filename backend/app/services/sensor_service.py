@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_SENSOR_PORT = "/dev/ttyUSB0"
 DEFAULT_SENSOR_BAUD_RATE = 9600
 SERIAL_RETRY_SECONDS = 5
-SENSOR_SAVE_INTERVAL_SECONDS = 60
+DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS = 60
 
 
 def _bool_from_env(name: str, default: bool) -> bool:
@@ -55,7 +55,7 @@ class SensorService:
         enabled: bool | None = None,
         premise_id: int | None = None,
         db_session_factory: Callable[[], Any] = SessionLocal,
-        save_interval_seconds: int = SENSOR_SAVE_INTERVAL_SECONDS,
+        save_interval_seconds: int | None = None,
     ) -> None:
         self.port = port or os.getenv("SENSOR_SERIAL_PORT", DEFAULT_SENSOR_PORT)
         self.baud_rate = baud_rate or int(
@@ -68,7 +68,11 @@ class SensorService:
             else enabled
         )
         self._db_session_factory = db_session_factory
-        self._save_interval_seconds = save_interval_seconds
+        self._save_interval_seconds = (
+            save_interval_seconds
+            if save_interval_seconds is not None
+            else self._save_interval_seconds_from_env()
+        )
 
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
@@ -186,6 +190,25 @@ class SensorService:
                 raw_premise_id,
             )
             return None
+
+    @staticmethod
+    def _save_interval_seconds_from_env() -> int:
+        raw_interval = os.getenv("SENSOR_SAVE_INTERVAL_SECONDS")
+        if raw_interval is None or raw_interval.strip() == "":
+            return DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS
+
+        try:
+            interval = int(raw_interval)
+            if interval <= 0:
+                raise ValueError
+            return interval
+        except ValueError:
+            logger.warning(
+                "[SENSOR] Invalid SENSOR_SAVE_INTERVAL_SECONDS=%s; using default %s seconds",
+                raw_interval,
+                DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS,
+            )
+            return DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS
 
     def _set_status(self, status: str) -> None:
         with self._lock:
