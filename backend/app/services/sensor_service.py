@@ -24,7 +24,7 @@ DEFAULT_SENSOR_PORT = "/dev/ttyUSB0"
 DEFAULT_SENSOR_BAUD_RATE = 9600
 SERIAL_RETRY_SECONDS = 5
 DEFAULT_SENSOR_SAVE_INTERVAL_SECONDS = 60
-DEFAULT_GAS_ALERT_THRESHOLD = 900
+DEFAULT_GAS_ALERT_THRESHOLD = 300
 DEFAULT_TEMPERATURE_ALERT_THRESHOLD = 40.0
 DEFAULT_SENSOR_OFFLINE_SECONDS = 30
 DEFAULT_ENVIRONMENT_ALERT_COOLDOWN_SECONDS = 120
@@ -385,8 +385,15 @@ class SensorService:
         gas = reading.get("gas")
         temperature = reading.get("temperature")
 
-        if gas is not None and gas >= self._gas_alert_threshold:
-            confidence = self._threshold_confidence(gas, self._gas_alert_threshold)
+        # MQ gas sensor readings drop when gas/smoke is detected, so low values
+        # are treated as the alert condition.
+        if gas is not None and gas <= self._gas_alert_threshold:
+            logger.warning(
+                "[SENSOR] Low gas sensor value detected: gas=%s threshold=%s",
+                gas,
+                self._gas_alert_threshold,
+            )
+            confidence = self._low_threshold_confidence(gas, self._gas_alert_threshold)
             self._create_environment_alert(
                 GAS_ALERT,
                 confidence_score=confidence,
@@ -475,6 +482,14 @@ class SensorService:
 
         ratio = value / threshold
         return min(100, max(50, ratio * 50))
+
+    @staticmethod
+    def _low_threshold_confidence(value: float, threshold: float) -> float:
+        if threshold <= 0:
+            return 100
+
+        ratio = max(0, threshold - value) / threshold
+        return min(100, max(50, 50 + ratio * 50))
 
     def _read_loop(self) -> None:
         while not self._stop_event.is_set():

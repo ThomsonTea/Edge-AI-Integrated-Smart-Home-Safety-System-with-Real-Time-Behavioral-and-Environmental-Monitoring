@@ -213,21 +213,35 @@ class SensorServiceTests(unittest.TestCase):
         )
         self.assertEqual(len(db.added), 1)
 
-    def test_high_gas_creates_gas_alert(self):
+    def test_low_gas_creates_gas_alert(self):
         db = FakeDb()
         service = SensorService(
             enabled=True,
             premise_id=1,
             db_session_factory=lambda: db,
-            gas_alert_threshold=900,
+            gas_alert_threshold=300,
         )
 
-        service.update_from_line("temperature=30,humidity=70,gas=966")
+        service.update_from_line("temperature=30,humidity=70,gas=100")
 
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0].event_type, "gas_alert")
         self.assertEqual(events[0].premise_id, 1)
+
+    def test_high_gas_does_not_create_gas_alert(self):
+        db = FakeDb()
+        service = SensorService(
+            enabled=True,
+            premise_id=1,
+            db_session_factory=lambda: db,
+            gas_alert_threshold=300,
+        )
+
+        service.update_from_line("temperature=30,humidity=70,gas=960")
+
+        events = [item for item in db.added if isinstance(item, AIEvent)]
+        self.assertEqual(events, [])
 
     def test_high_temperature_creates_high_temperature_alert(self):
         db = FakeDb()
@@ -238,7 +252,7 @@ class SensorServiceTests(unittest.TestCase):
             temperature_alert_threshold=40,
         )
 
-        service.update_from_line("temperature=41.5,humidity=70,gas=300")
+        service.update_from_line("temperature=41.5,humidity=70,gas=960")
 
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(len(events), 1)
@@ -250,11 +264,11 @@ class SensorServiceTests(unittest.TestCase):
             enabled=True,
             premise_id=1,
             db_session_factory=lambda: db,
-            gas_alert_threshold=900,
+            gas_alert_threshold=300,
         )
         service.premise_id = None
 
-        service.update_from_line("temperature=30,humidity=70,gas=966")
+        service.update_from_line("temperature=30,humidity=70,gas=100")
 
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(events, [])
@@ -313,10 +327,10 @@ class SensorServiceTests(unittest.TestCase):
             enabled=False,
             premise_id=1,
             db_session_factory=lambda: db,
-            gas_alert_threshold=900,
+            gas_alert_threshold=300,
         )
 
-        service.update_from_line("temperature=30,humidity=70,gas=966")
+        service.update_from_line("temperature=30,humidity=70,gas=100")
 
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(events, [])
