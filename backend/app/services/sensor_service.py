@@ -6,11 +6,14 @@ import json
 import logging
 import os
 import threading
-import time
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Callable
 
 from dotenv import load_dotenv
+
+from app.db.database import SessionLocal
+from app.models.sensor import SensorReading
 
 load_dotenv()
 
@@ -19,6 +22,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_SENSOR_PORT = "/dev/ttyUSB0"
 DEFAULT_SENSOR_BAUD_RATE = 9600
 SERIAL_RETRY_SECONDS = 5
+SENSOR_SAVE_INTERVAL_SECONDS = 60
 
 
 def _bool_from_env(name: str, default: bool) -> bool:
@@ -49,20 +53,28 @@ class SensorService:
         port: str | None = None,
         baud_rate: int | None = None,
         enabled: bool | None = None,
+        premise_id: int | None = None,
+        db_session_factory: Callable[[], Any] = SessionLocal,
+        save_interval_seconds: int = SENSOR_SAVE_INTERVAL_SECONDS,
     ) -> None:
         self.port = port or os.getenv("SENSOR_SERIAL_PORT", DEFAULT_SENSOR_PORT)
         self.baud_rate = baud_rate or int(
             os.getenv("SENSOR_BAUD_RATE", str(DEFAULT_SENSOR_BAUD_RATE))
         )
+        self.premise_id = premise_id if premise_id is not None else self._premise_id_from_env()
         self.enabled = (
             _bool_from_env("ENABLE_SENSOR_SERVICE", True)
             if enabled is None
             else enabled
         )
+        self._db_session_factory = db_session_factory
+        self._save_interval_seconds = save_interval_seconds
 
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
+        self._persist_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
+        self._last_saved_at: datetime | None = None
         self._latest: dict[str, Any] = {
             "status": "disabled" if not self.enabled else "disconnected",
             "temperature": None,
@@ -87,6 +99,12 @@ class SensorService:
             daemon=True,
         )
         self._thread.start()
+        self._persist_thread = threading.Thread(
+            target=self._persistence_loop,
+            name="sensor-reading-persister",
+            daemon=True,
+        )
+        self._persist_thread.start()
         logger.info(
             "Sensor service reader starting on %s at %s baud",
             self.port,
@@ -151,9 +169,103 @@ class SensorService:
             payload[key.strip()] = value.strip()
         return payload
 
+    @staticmethod
+    def _premise_id_from_env() -> int | None:
+        raw_premise_id = os.getenv("SENSOR_PREMISE_ID")
+        if raw_premise_id is None or raw_premise_id.strip() == "":
+            logger.warning(
+                "[SENSOR] SENSOR_PREMISE_ID is not configured; persistence will be skipped"
+            )
+            return None
+
+        try:
+            return int(raw_premise_id)
+        except ValueError:
+            logger.warning(
+                "[SENSOR] Invalid SENSOR_PREMISE_ID=%s; persistence will be skipped",
+                raw_premise_id,
+            )
+            return None
+
     def _set_status(self, status: str) -> None:
         with self._lock:
             self._latest["status"] = status
+
+    def _persistence_loop(self) -> None:
+        while not self._stop_event.wait(5):
+            self._persist_latest_reading()
+
+    def _persist_latest_reading(self, *, now: datetime | None = None) -> bool:
+        now = now or _utc_now()
+
+        if self._last_saved_at is not None:
+            elapsed = (now - self._last_saved_at).total_seconds()
+            if elapsed < self._save_interval_seconds:
+                return False
+
+        snapshot = self._latest_snapshot_for_persistence()
+        if snapshot is None:
+            return False
+
+        db = self._db_session_factory()
+        try:
+            reading = SensorReading(
+                premise_id=snapshot["premise_id"],
+                temperature=snapshot["temperature"],
+                humidity=snapshot["humidity"],
+                gas=snapshot["gas"],
+                sensor_status=snapshot["sensor_status"],
+                recorded_at=now,
+            )
+            db.add(reading)
+            db.commit()
+            self._last_saved_at = now
+            logger.info(
+                "[SENSOR] Saved reading: temp=%s humidity=%s gas=%s premise_id=%s",
+                snapshot["temperature"],
+                snapshot["humidity"],
+                snapshot["gas"],
+                snapshot["premise_id"],
+            )
+            return True
+        except Exception:
+            db.rollback()
+            logger.exception("[SENSOR] Failed to save sensor reading")
+            return False
+        finally:
+            db.close()
+
+    def _latest_snapshot_for_persistence(self) -> dict[str, Any] | None:
+        if self.premise_id is None:
+            logger.warning(
+                "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping persistence"
+            )
+            return None
+
+        with self._lock:
+            snapshot = dict(self._latest)
+
+        if snapshot["status"] != "connected":
+            return None
+
+        if (
+            snapshot["temperature"] is None
+            or snapshot["humidity"] is None
+            or snapshot["gas"] is None
+        ):
+            return None
+
+        try:
+            return {
+                "premise_id": self.premise_id,
+                "temperature": Decimal(str(snapshot["temperature"])),
+                "humidity": Decimal(str(snapshot["humidity"])),
+                "gas": int(snapshot["gas"]),
+                "sensor_status": snapshot["status"],
+            }
+        except (InvalidOperation, TypeError, ValueError):
+            logger.warning("[SENSOR] Latest sensor values are invalid; skipping persistence")
+            return None
 
     def _read_loop(self) -> None:
         while not self._stop_event.is_set():

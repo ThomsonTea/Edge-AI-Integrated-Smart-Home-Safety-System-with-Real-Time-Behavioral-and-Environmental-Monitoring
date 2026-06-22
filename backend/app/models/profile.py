@@ -40,3 +40,4 @@ class Premise(Base):
     devices = relationship("Device", back_populates="premise")
     profiles = relationship("Profile", back_populates="premise")
     events = relationship("AIEvent", back_populates="premise")
+    sensor_readings = relationship("SensorReading", back_populates="premise")
