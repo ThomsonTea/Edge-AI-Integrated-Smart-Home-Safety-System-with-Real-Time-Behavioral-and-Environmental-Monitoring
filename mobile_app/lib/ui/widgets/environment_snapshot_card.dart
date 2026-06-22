@@ -173,16 +173,9 @@ class _EnvironmentReadings extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        Row(
-          children: [
-            Expanded(
-              child: _ReadingTile(
-                icon: Icons.schedule_outlined,
-                label: 'Last Updated',
-                value: _relativeTime(snapshot.lastUpdated),
-              ),
-            ),
-          ],
+        _LastUpdatedSection(
+          exactTimestamp: _exactTimestamp(context, snapshot.lastUpdated),
+          relativeTimestamp: _relativeTime(snapshot.lastUpdated),
         ),
       ],
     );
@@ -208,6 +201,20 @@ class _EnvironmentReadings extends StatelessWidget {
     return '${difference.inDays}d ago';
   }
 
+  String _exactTimestamp(BuildContext context, DateTime? value) {
+    if (value == null) return 'Unavailable';
+
+    final localValue = value.toLocal();
+    final localizations = MaterialLocalizations.of(context);
+    final date = localizations.formatMediumDate(localValue);
+    final time = localizations.formatTimeOfDay(
+      TimeOfDay.fromDateTime(localValue),
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+    );
+
+    return '$date, $time';
+  }
+
   String _formatStatus(String status) {
     final normalized = status.trim().replaceAll('_', ' ');
     if (normalized.isEmpty) return 'Unknown';
@@ -217,6 +224,69 @@ class _EnvironmentReadings extends StatelessWidget {
         .where((part) => part.isNotEmpty)
         .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
         .join(' ');
+  }
+}
+
+class _LastUpdatedSection extends StatelessWidget {
+  final String exactTimestamp;
+  final String relativeTimestamp;
+
+  const _LastUpdatedSection({
+    required this.exactTimestamp,
+    required this.relativeTimestamp,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(AppSpacing.controlRadius),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.schedule_outlined,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                'Last Updated',
+                style: AppTextStyles.caption.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            exactTimestamp,
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          if (exactTimestamp != 'Unavailable') ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '($relativeTimestamp)',
+              style: AppTextStyles.caption.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
