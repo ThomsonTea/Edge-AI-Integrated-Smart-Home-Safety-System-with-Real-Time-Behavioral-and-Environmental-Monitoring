@@ -5,7 +5,6 @@ import '../../routing/routes.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../viewmodels/notification_viewmodel.dart';
-import '../widgets/alert_card.dart';
 import '../widgets/alert_date_filter_bar.dart';
 import '../widgets/alert_filter_bar.dart';
 import '../widgets/alert_search_field.dart';
@@ -107,6 +106,10 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
             fallsToday: _viewModel.fallsTodayCount,
             knownVisitsToday: _viewModel.knownVisitsTodayCount,
             criticalAlertsToday: _viewModel.criticalTodayCount,
+            onUnknownTodayTap: _viewModel.applyUnknownTodayFilter,
+            onFallsTodayTap: _viewModel.applyFallsTodayFilter,
+            onKnownVisitsTodayTap: _viewModel.applyKnownVisitsTodayFilter,
+            onCriticalTodayTap: _viewModel.applyCriticalTodayFilter,
           ),
           const SizedBox(height: AppSpacing.lg),
           _SearchAndDateFilterRow(
@@ -376,35 +379,14 @@ class _AlertCenterSections extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final criticalAlerts = viewModel.criticalAlerts;
     final recentGroups = viewModel.groupedRecentActivity;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (criticalAlerts.isNotEmpty) ...[
-          Text(
-            'Critical Alerts',
-            style: AppTextStyles.sectionTitle.copyWith(
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          for (final event in criticalAlerts) ...[
-            AlertCard(
-              event: event,
-              severity: viewModel.severityFor(event.eventType),
-              isAcknowledging: viewModel.isAcknowledging(event),
-              onTap: () => onEventTap(event),
-              onAcknowledge: () => viewModel.acknowledgeEvent(event),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          const SizedBox(height: AppSpacing.sm),
-        ],
         if (recentGroups.isNotEmpty) ...[
           Text(
-            'Recent Activity',
+            'Timeline',
             style: AppTextStyles.sectionTitle.copyWith(
               color: Theme.of(context).colorScheme.onSurface,
             ),

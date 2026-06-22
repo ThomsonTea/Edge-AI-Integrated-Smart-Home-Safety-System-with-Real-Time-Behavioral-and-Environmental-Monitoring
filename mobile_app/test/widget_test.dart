@@ -64,17 +64,16 @@ void main() {
     expect(find.text('Profile'), findsOneWidget);
 
     await tester.tap(find.text('Events'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
     expect(find.text('Unable to load security events'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
 
     await tester.tap(find.text('Camera'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('Camera Feed'), findsOneWidget);
 
     await tester.tap(find.text('Profile'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('Profile'), findsWidgets);
   });
 

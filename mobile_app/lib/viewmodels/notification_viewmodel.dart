@@ -83,12 +83,14 @@ class NotificationViewModel extends ChangeNotifier {
   List<AiEvent> get filteredEvents {
     final query = _searchQuery.trim().toLowerCase();
 
-    return _events.where((event) {
+    final events = _events.where((event) {
       if (!_matchesDateFilter(event)) return false;
       if (!_matchesFilter(event, _selectedFilter)) return false;
       if (query.isEmpty) return true;
       return _matchesSearch(event, query);
     }).toList();
+
+    return _sortNewestFirst(events);
   }
 
   List<AiEvent> get criticalAlerts {
@@ -107,7 +109,7 @@ class NotificationViewModel extends ChangeNotifier {
   }
 
   List<AlertGroup> get groupedRecentActivity {
-    return _groupEvents(recentActivityEvents);
+    return _groupEvents(filteredEvents);
   }
 
   int get criticalCount => _events
@@ -222,6 +224,45 @@ class NotificationViewModel extends ChangeNotifier {
   void setSearchQuery(String query) {
     if (_searchQuery == query) return;
     _searchQuery = query;
+    notifyListeners();
+  }
+
+  void applyUnknownTodayFilter() {
+    _applyStatFilter(
+      dateFilter: EventDateFilter.today,
+      alertFilter: AlertFilter.unknownPerson,
+    );
+  }
+
+  void applyFallsTodayFilter() {
+    _applyStatFilter(
+      dateFilter: EventDateFilter.today,
+      alertFilter: AlertFilter.fall,
+    );
+  }
+
+  void applyKnownVisitsTodayFilter() {
+    _applyStatFilter(
+      dateFilter: EventDateFilter.today,
+      alertFilter: AlertFilter.knownPerson,
+    );
+  }
+
+  void applyCriticalTodayFilter() {
+    _applyStatFilter(
+      dateFilter: EventDateFilter.today,
+      alertFilter: AlertFilter.critical,
+    );
+  }
+
+  void _applyStatFilter({
+    required EventDateFilter dateFilter,
+    required AlertFilter alertFilter,
+  }) {
+    _customStartDate = null;
+    _customEndDate = null;
+    _selectedDateFilter = dateFilter;
+    _selectedFilter = alertFilter;
     notifyListeners();
   }
 
@@ -383,6 +424,23 @@ class NotificationViewModel extends ChangeNotifier {
         AlertGroup(title: 'Yesterday', events: yesterday),
       if (older.isNotEmpty) AlertGroup(title: 'Older', events: older),
     ];
+  }
+
+  List<AiEvent> _sortNewestFirst(List<AiEvent> events) {
+    final sorted = List<AiEvent>.from(events);
+
+    sorted.sort((first, second) {
+      final firstTimestamp = first.timestamp;
+      final secondTimestamp = second.timestamp;
+
+      if (firstTimestamp == null && secondTimestamp == null) return 0;
+      if (firstTimestamp == null) return 1;
+      if (secondTimestamp == null) return -1;
+
+      return secondTimestamp.compareTo(firstTimestamp);
+    });
+
+    return sorted;
   }
 
   bool _isToday(DateTime? timestamp) {

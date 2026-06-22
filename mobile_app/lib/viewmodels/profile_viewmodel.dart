@@ -122,7 +122,7 @@ class ProfileViewModel extends ChangeNotifier {
       _successMessage = 'Face registered successfully';
       return true;
     } catch (error) {
-      _errorMessage = error.toString();
+      _errorMessage = _friendlyFaceRegistrationError(error);
       return false;
     } finally {
       _isSaving = false;
@@ -134,5 +134,20 @@ class ProfileViewModel extends ChangeNotifier {
     _errorMessage = null;
     _successMessage = null;
     notifyListeners();
+  }
+
+  String _friendlyFaceRegistrationError(Object error) {
+    final message = error.toString();
+    final lower = message.toLowerCase();
+
+    if (lower.contains('no face detected')) {
+      return 'No face detected. Please use a clear photo of your face.';
+    }
+
+    if (lower.contains('multiple faces detected')) {
+      return 'Multiple faces detected. Please use a photo with only your face.';
+    }
+
+    return message;
   }
 }

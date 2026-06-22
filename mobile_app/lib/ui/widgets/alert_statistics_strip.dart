@@ -9,6 +9,10 @@ class AlertStatisticsStrip extends StatelessWidget {
   final int fallsToday;
   final int knownVisitsToday;
   final int criticalAlertsToday;
+  final VoidCallback onUnknownTodayTap;
+  final VoidCallback onFallsTodayTap;
+  final VoidCallback onKnownVisitsTodayTap;
+  final VoidCallback onCriticalTodayTap;
 
   const AlertStatisticsStrip({
     super.key,
@@ -16,41 +20,51 @@ class AlertStatisticsStrip extends StatelessWidget {
     required this.fallsToday,
     required this.knownVisitsToday,
     required this.criticalAlertsToday,
+    required this.onUnknownTodayTap,
+    required this.onFallsTodayTap,
+    required this.onKnownVisitsTodayTap,
+    required this.onCriticalTodayTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 104,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          _StatCard(
-            icon: Icons.warning_amber_rounded,
-            label: 'Unknown Today',
-            value: unknownPersonsToday.toString(),
-            color: _warningColor(context),
-          ),
-          _StatCard(
-            icon: Icons.emergency_outlined,
-            label: 'Falls Today',
-            value: fallsToday.toString(),
-            color: _dangerColor(context),
-          ),
-          _StatCard(
-            icon: Icons.person_outline,
-            label: 'Known Visits',
-            value: knownVisitsToday.toString(),
-            color: _safeColor(context),
-          ),
-          _StatCard(
-            icon: Icons.priority_high_rounded,
-            label: 'Critical Today',
-            value: criticalAlertsToday.toString(),
-            color: _dangerColor(context),
-          ),
-        ],
-      ),
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: AppSpacing.md,
+      crossAxisSpacing: AppSpacing.md,
+      childAspectRatio: 1.85,
+      children: [
+        _StatCard(
+          icon: Icons.warning_amber_rounded,
+          label: 'Unknown',
+          value: unknownPersonsToday.toString(),
+          color: _warningColor(context),
+          onTap: onUnknownTodayTap,
+        ),
+        _StatCard(
+          icon: Icons.emergency_outlined,
+          label: 'Falls',
+          value: fallsToday.toString(),
+          color: _dangerColor(context),
+          onTap: onFallsTodayTap,
+        ),
+        _StatCard(
+          icon: Icons.person_outline,
+          label: 'Known Visits',
+          value: knownVisitsToday.toString(),
+          color: _safeColor(context),
+          onTap: onKnownVisitsTodayTap,
+        ),
+        _StatCard(
+          icon: Icons.priority_high_rounded,
+          label: 'Critical',
+          value: criticalAlertsToday.toString(),
+          color: _dangerColor(context),
+          onTap: onCriticalTodayTap,
+        ),
+      ],
     );
   }
 
@@ -78,48 +92,62 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final VoidCallback onTap;
 
   const _StatCard({
     required this.icon,
     required this.label,
     required this.value,
     required this.color,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      width: 144,
-      margin: const EdgeInsets.only(right: AppSpacing.md),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
+    return Material(
+      color: colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+      child: InkWell(
         borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color),
-          const Spacer(),
-          Text(
-            value,
-            style: AppTextStyles.sectionTitle.copyWith(
-              color: colorScheme.onSurface,
-            ),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+            border: Border.all(color: colorScheme.outlineVariant),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            label,
-            style: AppTextStyles.caption.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          child: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      value,
+                      style: AppTextStyles.sectionTitle.copyWith(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      label,
+                      style: AppTextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

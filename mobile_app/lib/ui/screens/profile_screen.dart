@@ -108,8 +108,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _registerFace() async {
+    final source = await _showFaceImageSourceSheet();
+    if (source == null) return;
+
     final image = await _imagePicker.pickImage(
-      source: ImageSource.camera,
+      source: source,
       imageQuality: 90,
       maxWidth: 1600,
     );
@@ -118,6 +121,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final success = await _viewModel.registerFace(File(image.path));
     _showResult(success);
+  }
+
+  Future<ImageSource?> _showFaceImageSourceSheet() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('Take Photo'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('Upload from Album'),
+                  onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showResult(bool success) {

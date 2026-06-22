@@ -7,9 +7,11 @@ from app.services.image_upload_validation import (
     HEIC_FACE_ENGINE_UNSUPPORTED_MESSAGE,
     IMAGE_TOO_LARGE_MESSAGE,
     INVALID_IMAGE_TYPE_MESSAGE,
+    INVALID_PROFILE_PICTURE_TYPE_MESSAGE,
     MAX_IMAGE_UPLOAD_BYTES,
     ensure_face_engine_supported_image,
     read_validated_image_upload,
+    read_validated_profile_picture_upload,
 )
 
 
@@ -77,6 +79,65 @@ class ImageUploadValidationTests(unittest.TestCase):
 
                 self.assertEqual(context.exception.status_code, 400)
                 self.assertEqual(context.exception.detail, INVALID_IMAGE_TYPE_MESSAGE)
+
+    def test_accepts_profile_picture_formats(self):
+        cases = [
+            ("avatar.jpg", "image/jpeg", ".jpg"),
+            ("avatar.jpeg", "image/jpeg", ".jpeg"),
+            ("avatar.jpg", "image/jpg", ".jpg"),
+            ("avatar.png", "image/png", ".png"),
+            ("avatar.webp", "image/webp", ".webp"),
+            ("avatar.webp", "application/octet-stream", ".webp"),
+        ]
+
+        for filename, content_type, expected_extension in cases:
+            with self.subTest(filename=filename, content_type=content_type):
+                image_bytes, extension = asyncio.run(
+                    read_validated_profile_picture_upload(
+                        _upload(filename, content_type, b"image-bytes"),
+                    ),
+                )
+
+                self.assertEqual(image_bytes, b"image-bytes")
+                self.assertEqual(extension, expected_extension)
+
+    def test_rejects_invalid_profile_picture_formats(self):
+        cases = [
+            ("avatar.pdf", "application/pdf"),
+            ("avatar.gif", "image/gif"),
+            ("avatar.txt", "text/plain"),
+            ("avatar.txt", "image/jpeg"),
+        ]
+
+        for filename, content_type in cases:
+            with self.subTest(filename=filename, content_type=content_type):
+                with self.assertRaises(HTTPException) as context:
+                    asyncio.run(
+                        read_validated_profile_picture_upload(
+                            _upload(filename, content_type, b"content"),
+                        ),
+                    )
+
+                self.assertEqual(context.exception.status_code, 400)
+                self.assertEqual(
+                    context.exception.detail,
+                    INVALID_PROFILE_PICTURE_TYPE_MESSAGE,
+                )
+
+    def test_rejects_oversized_profile_picture(self):
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(
+                read_validated_profile_picture_upload(
+                    _upload(
+                        "large.webp",
+                        "image/webp",
+                        b"x" * (MAX_IMAGE_UPLOAD_BYTES + 1),
+                    ),
+                ),
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.detail, IMAGE_TOO_LARGE_MESSAGE)
 
     def test_rejects_files_larger_than_five_mb(self):
         with self.assertRaises(HTTPException) as context:

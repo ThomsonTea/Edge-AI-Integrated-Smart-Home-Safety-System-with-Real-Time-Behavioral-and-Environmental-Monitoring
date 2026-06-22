@@ -10,6 +10,7 @@ from app.services.face_service import FaceRegistrationError, FaceService
 from app.services.image_upload_validation import (
     ensure_face_engine_supported_image,
     read_validated_image_upload,
+    read_validated_profile_picture_upload,
 )
 from app.services.user_service import UserService, is_owner, normalize_role
 
@@ -135,7 +136,7 @@ class ProfileService:
         profile: Profile,
         image: UploadFile,
     ) -> Profile:
-        image_bytes, extension = await read_validated_image_upload(image)
+        image_bytes, extension = await read_validated_profile_picture_upload(image)
 
         PROFILE_PICTURE_DIR.mkdir(parents=True, exist_ok=True)
         filename = f"profile_{profile.id}_{uuid4().hex}{extension}"

@@ -21,6 +21,7 @@ ENV/
 .idea/
 .vscode/
 *.iml
+*.md
 *.ipr
 *.iws
 .project
