@@ -7,8 +7,8 @@ void main() {
       'backend_online': true,
       'camera_online': true,
       'ai_detection_active': true,
-      'sensor_online': false,
-      'sensor_status': 'not_configured',
+      'sensor_online': true,
+      'sensor_status': 'connected',
       'system_status': 'critical_alert',
       'camera_status': 'online',
       'known_person_today_count': 3,
@@ -42,8 +42,8 @@ void main() {
     expect(summary.backendOnline, isTrue);
     expect(summary.cameraOnline, isTrue);
     expect(summary.aiDetectionActive, isTrue);
-    expect(summary.sensorOnline, isFalse);
-    expect(summary.sensorStatus, 'not_configured');
+    expect(summary.sensorOnline, isTrue);
+    expect(summary.sensorStatus, 'connected');
     expect(summary.systemStatus, 'critical_alert');
     expect(summary.cameraStatus, 'online');
     expect(summary.knownPersonTodayCount, 3);

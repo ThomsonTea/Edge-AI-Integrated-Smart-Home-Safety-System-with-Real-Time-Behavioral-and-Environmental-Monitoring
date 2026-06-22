@@ -16,7 +16,11 @@ from app.api.dev.endpoints.ai_events import (
     delete_ai_event,
     _ensure_admin_if_role_exists,
 )
-from app.api.dev.endpoints.dashboard import _event_trend, _event_type_counts
+from app.api.dev.endpoints.dashboard import (
+    _event_trend,
+    _event_type_counts,
+    _system_health,
+)
 from app.api.dev.endpoints.notifications_ws import _auth_close_reason
 from app.services.profile_service import ProfileService
 from app.services.face_service import FACE_LOGIN_THRESHOLD
@@ -932,6 +936,82 @@ class AIEventDeleteEndpointTests(unittest.TestCase):
                 {"label": "2026-06-13", "count": 2},
             ],
         )
+
+    def test_dashboard_system_health_uses_connected_sensor_status(self):
+        with patch(
+            "app.api.dev.endpoints.dashboard.camera_service.get_runtime_status",
+            return_value={"camera_online": True, "ai_detection_active": True},
+        ), patch("app.api.dev.endpoints.dashboard.sensor_service") as sensor:
+            sensor.enabled = True
+            sensor.get_latest.return_value = {
+                "status": "connected",
+                "temperature": 30.7,
+                "humidity": 70,
+                "gas": 966,
+                "last_updated": "2026-06-22T12:00:00Z",
+            }
+
+            health = _system_health()
+
+        self.assertTrue(health["sensor_online"])
+        self.assertEqual(health["sensor_status"], "connected")
+
+    def test_dashboard_system_health_maps_sensor_disconnected(self):
+        with patch(
+            "app.api.dev.endpoints.dashboard.camera_service.get_runtime_status",
+            return_value={"camera_online": True, "ai_detection_active": True},
+        ), patch("app.api.dev.endpoints.dashboard.sensor_service") as sensor:
+            sensor.enabled = True
+            sensor.get_latest.return_value = {
+                "status": "disconnected",
+                "temperature": None,
+                "humidity": None,
+                "gas": None,
+                "last_updated": "2026-06-22T12:00:00Z",
+            }
+
+            health = _system_health()
+
+        self.assertFalse(health["sensor_online"])
+        self.assertEqual(health["sensor_status"], "disconnected")
+
+    def test_dashboard_system_health_maps_sensor_disabled(self):
+        with patch(
+            "app.api.dev.endpoints.dashboard.camera_service.get_runtime_status",
+            return_value={"camera_online": True, "ai_detection_active": True},
+        ), patch("app.api.dev.endpoints.dashboard.sensor_service") as sensor:
+            sensor.enabled = False
+            sensor.get_latest.return_value = {
+                "status": "disabled",
+                "temperature": None,
+                "humidity": None,
+                "gas": None,
+                "last_updated": None,
+            }
+
+            health = _system_health()
+
+        self.assertFalse(health["sensor_online"])
+        self.assertEqual(health["sensor_status"], "disabled")
+
+    def test_dashboard_system_health_maps_enabled_sensor_without_reading_to_connecting(self):
+        with patch(
+            "app.api.dev.endpoints.dashboard.camera_service.get_runtime_status",
+            return_value={"camera_online": True, "ai_detection_active": True},
+        ), patch("app.api.dev.endpoints.dashboard.sensor_service") as sensor:
+            sensor.enabled = True
+            sensor.get_latest.return_value = {
+                "status": "disconnected",
+                "temperature": None,
+                "humidity": None,
+                "gas": None,
+                "last_updated": None,
+            }
+
+            health = _system_health()
+
+        self.assertFalse(health["sensor_online"])
+        self.assertEqual(health["sensor_status"], "connecting")
 
     def test_face_login_uses_stricter_threshold_than_camera_recognition(self):
         self.assertGreaterEqual(FACE_LOGIN_THRESHOLD, 0.55)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../viewmodels/camera_feed_viewmodel.dart';
 import '../widgets/camera_widget.dart';
 import '../widgets/screen_header.dart';
@@ -78,6 +79,8 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
             const SizedBox(height: AppSpacing.lg),
           ],
           CameraWidget(jwtToken: _viewModel.jwtToken),
+          const SizedBox(height: AppSpacing.lg),
+          const _FutureImprovementsCard(),
         ],
       ),
     );
@@ -89,6 +92,58 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Camera Feed')),
       body: content,
+    );
+  }
+}
+
+class _FutureImprovementsCard extends StatelessWidget {
+  const _FutureImprovementsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.insights_outlined, color: colorScheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Future Improvements',
+                  style: AppTextStyles.sectionTitle.copyWith(
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Multi-Camera Support',
+              style: AppTextStyles.body.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              'Future versions of the system will support monitoring multiple '
+              'cameras simultaneously across different locations and premises. '
+              'This enhancement will improve coverage, scalability, and '
+              'centralized monitoring capabilities for larger residential or '
+              'commercial environments.',
+              style: AppTextStyles.caption.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

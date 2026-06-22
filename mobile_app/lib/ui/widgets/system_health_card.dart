@@ -50,12 +50,8 @@ class SystemHealthCard extends StatelessWidget {
             _HealthRow(
               icon: Icons.sensors_outlined,
               label: 'Sensor Node',
-              value: summary.sensorOnline
-                  ? 'Online'
-                  : _sensorStatusLabel(summary.sensorStatus),
-              state: summary.sensorOnline
-                  ? _HealthState.success
-                  : _HealthState.neutral,
+              value: _sensorStatusLabel(summary.sensorStatus),
+              state: _sensorHealthState(summary.sensorStatus),
             ),
           ],
         ),
@@ -64,8 +60,28 @@ class SystemHealthCard extends StatelessWidget {
   }
 
   static String _sensorStatusLabel(String status) {
-    if (status == 'not_configured') return 'Not Configured';
+    final normalized = status.trim().toLowerCase();
+
+    if (normalized == 'connected') return 'Online';
+    if (normalized == 'disconnected') return 'Offline';
+    if (normalized == 'disabled') return 'Disabled';
+    if (normalized == 'connecting' || normalized == 'unknown') {
+      return 'Connecting';
+    }
+
     return _titleCase(status);
+  }
+
+  static _HealthState _sensorHealthState(String status) {
+    final normalized = status.trim().toLowerCase();
+
+    return switch (normalized) {
+      'connected' => _HealthState.success,
+      'disconnected' => _HealthState.danger,
+      'disabled' => _HealthState.neutral,
+      'connecting' || 'unknown' => _HealthState.warning,
+      _ => _HealthState.warning,
+    };
   }
 
   static String _titleCase(String value) {

@@ -12,6 +12,7 @@ from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
 from app.services.shared_camera import camera_service
+from app.services.sensor_service import sensor_service
 
 router = APIRouter()
 
@@ -181,16 +182,37 @@ def _camera_status(events: list[AIEvent]) -> str:
     return "online"
 
 
+def _sensor_health() -> dict:
+    latest = sensor_service.get_latest()
+    status_value = str(latest.get("status") or "unknown").strip().lower()
+    has_latest_reading = latest.get("last_updated") is not None
+
+    if status_value == "connected":
+        sensor_status = "connected"
+    elif status_value == "disabled":
+        sensor_status = "disabled"
+    elif status_value == "disconnected" and not has_latest_reading and sensor_service.enabled:
+        sensor_status = "connecting"
+    elif status_value == "disconnected":
+        sensor_status = "disconnected"
+    else:
+        sensor_status = "unknown"
+
+    return {
+        "sensor_online": sensor_status == "connected",
+        "sensor_status": sensor_status,
+    }
+
+
 def _system_health() -> dict:
     runtime_status = camera_service.get_runtime_status()
-    sensor_online = False
+    sensor_health = _sensor_health()
 
     return {
         "backend_online": True,
         "camera_online": bool(runtime_status.get("camera_online")),
         "ai_detection_active": bool(runtime_status.get("ai_detection_active")),
-        "sensor_online": sensor_online,
-        "sensor_status": "not_configured",
+        **sensor_health,
     }
 
 
