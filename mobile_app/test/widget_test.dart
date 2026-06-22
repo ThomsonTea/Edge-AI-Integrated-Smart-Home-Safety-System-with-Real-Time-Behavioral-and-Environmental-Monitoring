@@ -61,6 +61,7 @@ void main() {
     expect(find.text('Dashboard'), findsOneWidget);
     expect(find.text('Events'), findsOneWidget);
     expect(find.text('Camera'), findsOneWidget);
+    expect(find.text('Analytics'), findsOneWidget);
     expect(find.text('Profile'), findsOneWidget);
 
     await tester.tap(find.text('Events'));
@@ -71,6 +72,10 @@ void main() {
     await tester.tap(find.text('Camera'));
     await tester.pumpAndSettle();
     expect(find.text('Camera Feed'), findsOneWidget);
+
+    await tester.tap(find.text('Analytics'));
+    await tester.pumpAndSettle();
+    expect(find.text('Analytics'), findsWidgets);
 
     await tester.tap(find.text('Profile'));
     await tester.pumpAndSettle();

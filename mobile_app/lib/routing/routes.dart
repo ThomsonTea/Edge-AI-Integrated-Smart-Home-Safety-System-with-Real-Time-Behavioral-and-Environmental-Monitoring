@@ -10,6 +10,7 @@ class AppRoutes {
   static const family = '/family';
   static const cameraFeed = '/camera/feed';
   static const cameraConfig = '/camera/config';
+  static const analytics = '/analytics';
   static const aiSettings = '/ai/settings';
   static const diagnostics = '/diagnostics';
   static const profile = '/profile';

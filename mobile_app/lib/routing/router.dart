@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../ui/layout/bottom_nav_shell.dart';
+import '../ui/screens/analytics_screen.dart';
 import '../ui/screens/auth_gate_screen.dart';
 import '../ui/screens/camera_feed_screen.dart';
 import '../ui/screens/event_detail_screen.dart';
@@ -40,6 +41,11 @@ class AppRouter {
       case AppRoutes.cameraFeed:
         return MaterialPageRoute(
           builder: (_) => const CameraFeedScreen(showAppBar: true),
+        );
+
+      case AppRoutes.analytics:
+        return MaterialPageRoute(
+          builder: (_) => const AnalyticsScreen(showAppBar: true),
         );
 
       case AppRoutes.eventDetail:

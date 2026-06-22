@@ -52,6 +52,15 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
+          _DrawerItem(
+            icon: Icons.insights,
+            label: "Analytics",
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.analytics);
+            },
+          ),
+
           const Divider(),
 
           const _DrawerSectionTitle("System Management"),

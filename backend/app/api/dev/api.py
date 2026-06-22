@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from .endpoints import ai_events
+from .endpoints import analytics
 from .endpoints import auth
 from .endpoints import user
 from .endpoints import camera
@@ -24,6 +25,7 @@ api_router.include_router(
 )
 api_router.include_router(camera.router, prefix="/camera", tags=["camera"])
 api_router.include_router(ai_events.router, prefix="/ai_events", tags=["ai_events"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(sensors.router, prefix="/sensors", tags=["sensors"])
 api_router.include_router(notifications_ws.router, tags=["notifications"])

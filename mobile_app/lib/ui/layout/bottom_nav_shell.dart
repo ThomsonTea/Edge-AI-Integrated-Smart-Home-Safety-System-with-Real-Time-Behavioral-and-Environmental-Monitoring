@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import '../../routing/routes.dart';
 import '../../theme/app_spacing.dart';
 import '../../viewmodels/session_viewmodel.dart';
+import '../screens/analytics_screen.dart';
 import '../screens/camera_feed_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/notification_center_screen.dart';
 import '../screens/profile_screen.dart';
-import '../screens/user_access_screen.dart';
 import 'app_drawer.dart';
 
 class BottomNavShell extends StatefulWidget {
@@ -133,16 +133,15 @@ class _BottomNavShellState extends State<BottomNavShell> {
           label: "Camera",
         ),
       ),
-      if (_sessionViewModel.canManageUsers)
-        const _MainPage(
-          id: _MainPageId.userManagement,
-          screen: UserAccessScreen(key: PageStorageKey('user-management')),
-          item: BottomNavigationBarItem(
-            icon: Icon(Icons.admin_panel_settings_outlined),
-            activeIcon: Icon(Icons.admin_panel_settings),
-            label: "Users",
-          ),
+      const _MainPage(
+        id: _MainPageId.analytics,
+        screen: AnalyticsScreen(key: PageStorageKey('analytics')),
+        item: BottomNavigationBarItem(
+          icon: Icon(Icons.insights_outlined),
+          activeIcon: Icon(Icons.insights),
+          label: "Analytics",
         ),
+      ),
       _MainPage(
         id: _MainPageId.profile,
         screen: ProfileScreen(
@@ -198,7 +197,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
   }
 }
 
-enum _MainPageId { dashboard, events, camera, userManagement, profile }
+enum _MainPageId { dashboard, events, camera, analytics, profile }
 
 class _MainPage {
   final _MainPageId id;
