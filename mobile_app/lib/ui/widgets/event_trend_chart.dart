@@ -19,6 +19,7 @@ class EventTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final labelIndexes = _visibleLabelIndexes(points.length);
     final chartPoints = points
         .where(
           (point) => selectedEventTypes.any(
@@ -45,7 +46,7 @@ class EventTrendChart extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: AppSpacing.chartHeight,
+          height: AppSpacing.chartHeight + AppSpacing.xl,
           child: LineChart(
             LineChartData(
               minY: 0,
@@ -56,6 +57,21 @@ class EventTrendChart extends StatelessWidget {
                     FlLine(color: colorScheme.outlineVariant, strokeWidth: 1),
               ),
               borderData: FlBorderData(show: false),
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipColor: (_) => colorScheme.inverseSurface,
+                  getTooltipItems: (spots) => [
+                    if (spots.isNotEmpty)
+                      LineTooltipItem(
+                        _tooltipForPoint(context, spots.first.x.toInt()),
+                        AppTextStyles.caption.copyWith(
+                          color: colorScheme.onInverseSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
               titlesData: FlTitlesData(
                 topTitles: const AxisTitles(
                   sideTitles: SideTitles(showTitles: false),
@@ -75,8 +91,31 @@ class EventTrendChart extends StatelessWidget {
                     ),
                   ),
                 ),
-                bottomTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    reservedSize: 34,
+                    interval: 1,
+                    getTitlesWidget: (value, meta) {
+                      final index = value.toInt();
+                      if (!labelIndexes.contains(index) ||
+                          index < 0 ||
+                          index >= points.length) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(top: AppSpacing.xs),
+                        child: Text(
+                          _axisLabelForPoint(points[index]),
+                          style: AppTextStyles.caption.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
               lineBarsData: [
@@ -138,6 +177,96 @@ class EventTrendChart extends StatelessWidget {
     }
 
     return maxValue + 1;
+  }
+
+  Set<int> _visibleLabelIndexes(int length) {
+    if (length <= 0) return const {};
+    if (length <= 7) {
+      return {for (var index = 0; index < length; index++) index};
+    }
+
+    final desiredLabels = length <= 24 ? 5 : 6;
+    final step = ((length - 1) / (desiredLabels - 1)).ceil();
+    final indexes = <int>{0, length - 1};
+
+    for (var index = 0; index < length; index += step) {
+      indexes.add(index);
+    }
+
+    return indexes;
+  }
+
+  String _axisLabelForPoint(EventTrendPoint point) {
+    final timestamp = point.timestamp;
+    if (timestamp == null) return point.label;
+
+    if (points.length == 24) {
+      final hour = timestamp.toLocal().hour.toString().padLeft(2, '0');
+      return '$hour:00';
+    }
+
+    if (points.length > 7) {
+      return _shortDate(timestamp);
+    }
+
+    return point.label;
+  }
+
+  String _tooltipForPoint(BuildContext context, int index) {
+    if (index < 0 || index >= points.length) return '';
+
+    final point = points[index];
+    final buffer = StringBuffer(_tooltipTitle(context, point));
+
+    for (final eventType in selectedEventTypes) {
+      final count = point.countFor(eventType);
+      if (count <= 0) continue;
+      buffer.write('\n${_labelForEventType(eventType)}: $count');
+    }
+
+    if (buffer.toString().trim() == _tooltipTitle(context, point)) {
+      buffer.write('\nNo selected events');
+    }
+
+    return buffer.toString();
+  }
+
+  String _tooltipTitle(BuildContext context, EventTrendPoint point) {
+    final timestamp = point.timestamp;
+    if (timestamp == null) return point.label;
+
+    final localTimestamp = timestamp.toLocal();
+    final localizations = MaterialLocalizations.of(context);
+
+    if (points.length == 24) {
+      final date = localizations.formatMediumDate(localTimestamp);
+      final time = localizations.formatTimeOfDay(
+        TimeOfDay.fromDateTime(localTimestamp),
+        alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+      );
+      return '$date, $time';
+    }
+
+    return localizations.formatMediumDate(localTimestamp);
+  }
+
+  String _shortDate(DateTime timestamp) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final localTimestamp = timestamp.toLocal();
+    return '${localTimestamp.day} ${months[localTimestamp.month - 1]}';
   }
 
   Color _colorForEventType(BuildContext context, String eventType) {
