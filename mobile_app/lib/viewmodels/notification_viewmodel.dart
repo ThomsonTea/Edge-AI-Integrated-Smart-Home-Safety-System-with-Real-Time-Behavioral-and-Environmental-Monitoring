@@ -43,6 +43,9 @@ class AlertGroup {
 }
 
 class NotificationViewModel extends ChangeNotifier {
+  static const int _eventFetchLimit = 200;
+  static const int _fallEventFetchLimit = 200;
+
   final EventService _eventService;
   final TokenService _tokenService;
 
@@ -193,7 +196,13 @@ class NotificationViewModel extends ChangeNotifier {
 
     try {
       await _loadCurrentUserRole();
-      _events = await _eventService.fetchEvents(limit: 100);
+      _events = _mergeEventsById([
+        await _eventService.fetchEvents(limit: _eventFetchLimit),
+        await _eventService.fetchEventsWithFilters(
+          limit: _fallEventFetchLimit,
+          eventType: 'fall_detected',
+        ),
+      ]);
     } catch (error) {
       _errorMessage = error.toString();
       debugPrint('Error loading notifications: $error');
@@ -387,6 +396,19 @@ class NotificationViewModel extends ChangeNotifier {
       _deletingEventIds.removeAll(visibleIds);
       notifyListeners();
     }
+  }
+
+  List<AiEvent> _mergeEventsById(List<List<AiEvent>> eventBatches) {
+    final eventsById = <int, AiEvent>{};
+
+    for (final batch in eventBatches) {
+      for (final event in batch) {
+        if (event.id <= 0) continue;
+        eventsById[event.id] = event;
+      }
+    }
+
+    return _sortNewestFirst(eventsById.values.toList());
   }
 
   AlertSeverity severityFor(String eventType) {
