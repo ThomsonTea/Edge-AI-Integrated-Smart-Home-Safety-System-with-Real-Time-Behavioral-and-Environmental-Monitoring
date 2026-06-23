@@ -395,9 +395,8 @@ class _EventFilterControls extends StatelessWidget {
   String _labelForCategory(EventCategory category) {
     return switch (category) {
       EventCategory.all => 'All',
-      EventCategory.people => 'People',
-      EventCategory.safety => 'Safety',
-      EventCategory.environment => 'Environment',
+      EventCategory.securityEvents => 'Security Events',
+      EventCategory.systemEvents => 'System Events',
     };
   }
 

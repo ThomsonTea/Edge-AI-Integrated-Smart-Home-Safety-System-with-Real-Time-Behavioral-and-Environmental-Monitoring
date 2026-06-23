@@ -8,12 +8,12 @@ enum AlertFilter {
   all('All'),
   critical('Critical'),
   unacknowledged('Unacknowledged'),
+  securityEvents('Security Events'),
   knownPerson('Known Person'),
   unknownPerson('Unknown Person'),
   fall('Fall'),
   inactivity('Inactivity'),
-  fire('Fire'),
-  system('System');
+  system('System Events');
 
   final String label;
 
@@ -415,8 +415,9 @@ class NotificationViewModel extends ChangeNotifier {
     return switch (eventType) {
       'fall_detected' ||
       'prolonged_inactivity' ||
-      'fire_alert' ||
       'gas_alert' ||
+      'high_temperature' ||
+      'sensor_offline' ||
       'system_error' ||
       'camera_offline' => AlertSeverity.critical,
       'unknown_person' => AlertSeverity.warning,
@@ -450,15 +451,21 @@ class NotificationViewModel extends ChangeNotifier {
       AlertFilter.critical =>
         severityFor(event.eventType) == AlertSeverity.critical,
       AlertFilter.unacknowledged => !event.isAcknowledged,
+      AlertFilter.securityEvents =>
+        event.eventType == 'known_person' ||
+            event.eventType == 'unknown_person' ||
+            event.eventType == 'fall_detected' ||
+            event.eventType == 'prolonged_inactivity',
       AlertFilter.knownPerson => event.eventType == 'known_person',
       AlertFilter.unknownPerson => event.eventType == 'unknown_person',
       AlertFilter.fall => event.eventType == 'fall_detected',
       AlertFilter.inactivity => event.eventType == 'prolonged_inactivity',
-      AlertFilter.fire => event.eventType == 'fire_alert',
       AlertFilter.system =>
         event.eventType == 'system_error' ||
             event.eventType == 'camera_offline' ||
-            event.eventType == 'gas_alert',
+            event.eventType == 'gas_alert' ||
+            event.eventType == 'high_temperature' ||
+            event.eventType == 'sensor_offline',
     };
   }
 

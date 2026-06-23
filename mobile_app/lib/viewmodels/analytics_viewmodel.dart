@@ -9,7 +9,7 @@ enum AnalyticsSection { sensorTrends, securityEvents }
 
 enum SensorMetric { temperature, humidity, gas }
 
-enum EventCategory { all, people, safety, environment }
+enum EventCategory { all, securityEvents, systemEvents }
 
 enum EventViewMode { trend, distribution }
 
@@ -25,9 +25,13 @@ const analyticsEventTypes = [
 
 const eventTypesByCategory = {
   EventCategory.all: analyticsEventTypes,
-  EventCategory.people: ['known_person', 'unknown_person'],
-  EventCategory.safety: ['fall_detected', 'prolonged_inactivity'],
-  EventCategory.environment: [
+  EventCategory.securityEvents: [
+    'known_person',
+    'unknown_person',
+    'fall_detected',
+    'prolonged_inactivity',
+  ],
+  EventCategory.systemEvents: [
     'gas_alert',
     'high_temperature',
     'sensor_offline',

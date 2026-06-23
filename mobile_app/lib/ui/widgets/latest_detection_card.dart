@@ -133,8 +133,9 @@ class _DetectionContent extends StatelessWidget {
       'unknown_person' => Icons.person_search_outlined,
       'fall_detected' => Icons.emergency_outlined,
       'prolonged_inactivity' => Icons.personal_injury_outlined,
-      'fire_alert' => Icons.local_fire_department_outlined,
       'gas_alert' => Icons.gas_meter_outlined,
+      'high_temperature' => Icons.thermostat_outlined,
+      'sensor_offline' => Icons.sensors_off_outlined,
       'camera_offline' => Icons.videocam_off_outlined,
       _ => Icons.notifications_outlined,
     };

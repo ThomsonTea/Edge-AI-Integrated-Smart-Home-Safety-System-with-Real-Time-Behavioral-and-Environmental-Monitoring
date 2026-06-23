@@ -20,27 +20,27 @@ TIME_FILTERS = {"today", "yesterday", "last_7_days", "all"}
 EVENT_TYPE_FILTERS = {
     "known_person",
     "unknown_person",
-    "fire_alert",
     "gas_alert",
+    "high_temperature",
+    "sensor_offline",
     "system_error",
     "fall_detected",
     "prolonged_inactivity",
 }
 CRITICAL_EVENT_TYPES = {
     "unknown_person",
-    "fire_alert",
     "gas_alert",
+    "high_temperature",
+    "sensor_offline",
     "system_error",
     "camera_offline",
     "fall_detected",
     "prolonged_inactivity",
 }
 ENVIRONMENT_EVENT_TYPES = {
-    "fire_alert",
     "gas_alert",
-    "smoke_detected",
     "high_temperature",
-    "fire_risk",
+    "sensor_offline",
 }
 
 

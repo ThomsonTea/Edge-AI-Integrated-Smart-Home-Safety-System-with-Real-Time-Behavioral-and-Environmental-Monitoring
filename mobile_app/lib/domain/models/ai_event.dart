@@ -52,6 +52,11 @@ class AiEvent {
       'person_detected' => 'Person Detected',
       'fall_detected' => 'Fall Detected',
       'prolonged_inactivity' => 'Prolonged Inactivity',
+      'gas_alert' => 'Gas Alert',
+      'high_temperature' => 'High Temperature',
+      'sensor_offline' => 'Sensor Offline',
+      'camera_offline' => 'Camera Offline',
+      'system_error' => 'System Error',
       _ => _titleCase(eventType),
     };
   }

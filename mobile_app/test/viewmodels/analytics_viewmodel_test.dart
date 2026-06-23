@@ -54,16 +54,37 @@ void main() {
   test('selecting event category selects only mapped event types', () {
     final viewModel = AnalyticsViewModel();
 
-    viewModel.setEventCategory(EventCategory.people);
-    expect(viewModel.selectedEventTypes, {'known_person', 'unknown_person'});
-
-    viewModel.setEventCategory(EventCategory.safety);
+    viewModel.setEventCategory(EventCategory.securityEvents);
     expect(viewModel.selectedEventTypes, {
+      'known_person',
+      'unknown_person',
       'fall_detected',
       'prolonged_inactivity',
     });
 
-    viewModel.setEventCategory(EventCategory.environment);
+    viewModel.setEventCategory(EventCategory.systemEvents);
+    expect(viewModel.selectedEventTypes, {
+      'gas_alert',
+      'high_temperature',
+      'sensor_offline',
+    });
+  });
+
+  test('event categories expose security and system groups without fire', () {
+    expect(EventCategory.values, [
+      EventCategory.all,
+      EventCategory.securityEvents,
+      EventCategory.systemEvents,
+    ]);
+    expect(analyticsEventTypes.contains('fire_alert'), isFalse);
+    expect(analyticsEventTypes.contains('fire_risk'), isFalse);
+  });
+
+  test('system events category includes sensor related event types', () {
+    final viewModel = AnalyticsViewModel();
+
+    viewModel.setEventCategory(EventCategory.systemEvents);
+
     expect(viewModel.selectedEventTypes, {
       'gas_alert',
       'high_temperature',
@@ -74,15 +95,26 @@ void main() {
   test('manual event type toggle keeps at least one selected', () {
     final viewModel = AnalyticsViewModel();
 
-    viewModel.setEventCategory(EventCategory.people);
+    viewModel.setEventCategory(EventCategory.securityEvents);
     viewModel.toggleEventType('known_person');
-    expect(viewModel.selectedEventTypes, {'unknown_person'});
+    expect(viewModel.selectedEventTypes, {
+      'unknown_person',
+      'fall_detected',
+      'prolonged_inactivity',
+    });
 
     viewModel.toggleEventType('unknown_person');
-    expect(viewModel.selectedEventTypes, {'unknown_person'});
+    expect(viewModel.selectedEventTypes, {
+      'fall_detected',
+      'prolonged_inactivity',
+    });
 
     viewModel.toggleEventType('gas_alert');
-    expect(viewModel.selectedEventTypes, {'unknown_person', 'gas_alert'});
+    expect(viewModel.selectedEventTypes, {
+      'fall_detected',
+      'prolonged_inactivity',
+      'gas_alert',
+    });
   });
 
   test('filtered event counts returns only selected event types', () {
@@ -97,7 +129,7 @@ void main() {
       ],
     );
 
-    viewModel.setEventCategory(EventCategory.people);
+    viewModel.setEventCategory(EventCategory.securityEvents);
     viewModel.debugSetEventAnalyticsForTest(analytics);
 
     expect(viewModel.filteredEventCounts.map((count) => count.eventType), [
