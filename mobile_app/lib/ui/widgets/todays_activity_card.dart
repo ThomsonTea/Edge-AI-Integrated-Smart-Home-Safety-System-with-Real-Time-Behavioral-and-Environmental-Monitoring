@@ -47,8 +47,8 @@ class TodaysActivityCard extends StatelessWidget {
             ),
             _ActivityRow(
               icon: Icons.emergency_outlined,
-              label: 'Fall Alerts',
-              value: summary.fallTodayCount,
+              label: 'Safety Alerts',
+              value: summary.safetyAlertTodayCount,
               color: dangerColor,
             ),
             _ActivityRow(

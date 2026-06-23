@@ -2,6 +2,7 @@
 
 from datetime import datetime, time, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from app.services.sensor_service import sensor_service
 
 router = APIRouter()
 
+MALAYSIA_TIMEZONE = ZoneInfo("Asia/Kuala_Lumpur")
 TIME_FILTERS = {"today", "yesterday", "last_7_days", "all"}
 EVENT_TYPE_FILTERS = {
     "known_person",
@@ -42,6 +44,10 @@ ENVIRONMENT_EVENT_TYPES = {
     "high_temperature",
     "sensor_offline",
 }
+SAFETY_EVENT_TYPES = {
+    "fall_detected",
+    "prolonged_inactivity",
+}
 
 
 def _get_current_profile(current_user: dict, db: Session) -> Profile:
@@ -58,11 +64,10 @@ def _get_current_profile(current_user: dict, db: Session) -> Profile:
 
 
 def _time_window(time_filter: str) -> tuple[Optional[datetime], Optional[datetime]]:
-    now = datetime.now(timezone.utc)
-    today_start = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+    today_start = _local_day_start_utc()
 
     if time_filter == "today":
-        return today_start, None
+        return today_start, today_start + timedelta(days=1)
 
     if time_filter == "yesterday":
         yesterday_start = today_start - timedelta(days=1)
@@ -75,9 +80,23 @@ def _time_window(time_filter: str) -> tuple[Optional[datetime], Optional[datetim
 
 
 def _today_window() -> tuple[datetime, datetime]:
-    now = datetime.now(timezone.utc)
-    start = datetime.combine(now.date(), time.min, tzinfo=timezone.utc)
+    start = _local_day_start_utc()
     return start, start + timedelta(days=1)
+
+
+def _local_day_start_utc(now: datetime | None = None) -> datetime:
+    current = now or datetime.now(timezone.utc)
+    local_now = current.astimezone(MALAYSIA_TIMEZONE)
+    local_start = datetime.combine(
+        local_now.date(),
+        time.min,
+        tzinfo=MALAYSIA_TIMEZONE,
+    )
+    return local_start.astimezone(timezone.utc)
+
+
+def _local_date_label(value: datetime) -> str:
+    return value.astimezone(MALAYSIA_TIMEZONE).date().isoformat()
 
 
 def _event_to_response(event: AIEvent | None) -> Optional[dict]:
@@ -132,19 +151,22 @@ def _event_trend(events: list[AIEvent], time_filter: str) -> list[dict]:
         if timestamp is None:
             continue
 
-        label = timestamp.date().isoformat()
+        label = _local_date_label(timestamp)
         buckets[label] = buckets.get(label, 0) + 1
 
     if time_filter == "today":
-        label = datetime.now(timezone.utc).date().isoformat()
+        label = datetime.now(timezone.utc).astimezone(MALAYSIA_TIMEZONE).date().isoformat()
         return [{"label": label, "count": buckets.get(label, 0)}]
 
     if time_filter == "yesterday":
-        label = (datetime.now(timezone.utc).date() - timedelta(days=1)).isoformat()
+        label = (
+            datetime.now(timezone.utc).astimezone(MALAYSIA_TIMEZONE).date()
+            - timedelta(days=1)
+        ).isoformat()
         return [{"label": label, "count": buckets.get(label, 0)}]
 
     if time_filter == "last_7_days":
-        today = datetime.now(timezone.utc).date()
+        today = datetime.now(timezone.utc).astimezone(MALAYSIA_TIMEZONE).date()
         return [
             {
                 "label": (today - timedelta(days=offset)).isoformat(),
@@ -267,6 +289,7 @@ def get_dashboard_summary(
             "known_person_today_count": 0,
             "unknown_person_today_count": 0,
             "fall_today_count": 0,
+            "safety_alert_today_count": 0,
             "environment_alert_today_count": 0,
             "unacknowledged_count": 0,
             "critical_alert_count": 0,
@@ -326,6 +349,16 @@ def get_dashboard_summary(
             start_date=today_start,
             end_date=tomorrow_start,
             event_type="fall_detected",
+        )
+        .count()
+    )
+    safety_alert_today_count = (
+        db.query(AIEvent)
+        .filter(
+            AIEvent.premise_id == user.premise_id,
+            AIEvent.timestamp >= today_start,
+            AIEvent.timestamp < tomorrow_start,
+            AIEvent.event_type.in_(SAFETY_EVENT_TYPES),
         )
         .count()
     )
@@ -397,6 +430,7 @@ def get_dashboard_summary(
         "known_person_today_count": known_today_count,
         "unknown_person_today_count": unknown_today_count,
         "fall_today_count": fall_today_count,
+        "safety_alert_today_count": safety_alert_today_count,
         "environment_alert_today_count": environment_alert_today_count,
         "unacknowledged_count": unacknowledged_count,
         "critical_alert_count": critical_alert_count,

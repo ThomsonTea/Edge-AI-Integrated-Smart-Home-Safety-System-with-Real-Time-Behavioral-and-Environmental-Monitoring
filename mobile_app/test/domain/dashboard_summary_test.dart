@@ -14,6 +14,7 @@ void main() {
       'known_person_today_count': 3,
       'unknown_person_today_count': 2,
       'fall_today_count': 1,
+      'safety_alert_today_count': 4,
       'environment_alert_today_count': 0,
       'unacknowledged_count': 4,
       'critical_alert_count': 2,
@@ -49,6 +50,7 @@ void main() {
     expect(summary.knownPersonTodayCount, 3);
     expect(summary.unknownPersonTodayCount, 2);
     expect(summary.fallTodayCount, 1);
+    expect(summary.safetyAlertTodayCount, 4);
     expect(summary.environmentAlertTodayCount, 0);
     expect(summary.unacknowledgedCount, 4);
     expect(summary.criticalAlertCount, 2);

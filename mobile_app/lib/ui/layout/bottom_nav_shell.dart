@@ -21,6 +21,7 @@ class _BottomNavShellState extends State<BottomNavShell> {
   final SessionViewModel _sessionViewModel = SessionViewModel();
   late final PageController _pageController;
   int _index = 0;
+  int _dashboardRefreshSignal = 0;
 
   @override
   void initState() {
@@ -76,7 +77,15 @@ class _BottomNavShellState extends State<BottomNavShell> {
   }
 
   void _goToPage(int index) {
-    if (index == _index) return;
+    final pages = _buildMainPages();
+    if (index < 0 || index >= pages.length) return;
+
+    if (index == _index) {
+      if (pages[index].id == _MainPageId.dashboard) {
+        _refreshDashboardPage();
+      }
+      return;
+    }
 
     setState(() => _index = index);
 
@@ -99,12 +108,17 @@ class _BottomNavShellState extends State<BottomNavShell> {
     });
   }
 
+  void _refreshDashboardPage() {
+    setState(() => _dashboardRefreshSignal++);
+  }
+
   List<_MainPage> _buildMainPages() {
     return [
       _MainPage(
         id: _MainPageId.dashboard,
         screen: DashboardScreen(
           key: const PageStorageKey('dashboard'),
+          refreshSignal: _dashboardRefreshSignal,
           onViewCamera: () => _openPage(_MainPageId.camera),
           onViewAlerts: () => _openPage(_MainPageId.events),
           canManageUsers: _sessionViewModel.canManageUsers,
@@ -183,7 +197,12 @@ class _BottomNavShellState extends State<BottomNavShell> {
         controller: _pageController,
         onPageChanged: (index) {
           if (_index == index) return;
-          setState(() => _index = index);
+          setState(() {
+            _index = index;
+            if (pages[index].id == _MainPageId.dashboard) {
+              _dashboardRefreshSignal++;
+            }
+          });
         },
         children: [for (final page in pages) page.screen],
       ),

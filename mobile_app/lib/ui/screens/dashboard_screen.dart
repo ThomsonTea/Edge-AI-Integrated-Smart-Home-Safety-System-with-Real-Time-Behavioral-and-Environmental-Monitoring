@@ -14,12 +14,14 @@ class DashboardScreen extends StatefulWidget {
   final VoidCallback? onViewCamera;
   final VoidCallback? onViewAlerts;
   final bool canManageUsers;
+  final int refreshSignal;
 
   const DashboardScreen({
     super.key,
     this.onViewCamera,
     this.onViewAlerts,
     this.canManageUsers = false,
+    this.refreshSignal = 0,
   });
 
   @override
@@ -41,6 +43,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _viewModel.removeListener(_onViewModelUpdate);
     _viewModel.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      _viewModel.refreshDashboard();
+    }
   }
 
   void _onViewModelUpdate() {

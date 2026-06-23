@@ -11,6 +11,7 @@ class DashboardSummary {
   final int knownPersonTodayCount;
   final int unknownPersonTodayCount;
   final int fallTodayCount;
+  final int safetyAlertTodayCount;
   final int environmentAlertTodayCount;
   final int unacknowledgedCount;
   final int criticalAlertCount;
@@ -31,6 +32,7 @@ class DashboardSummary {
     required this.knownPersonTodayCount,
     required this.unknownPersonTodayCount,
     required this.fallTodayCount,
+    required this.safetyAlertTodayCount,
     required this.environmentAlertTodayCount,
     required this.unacknowledgedCount,
     required this.criticalAlertCount,
@@ -53,6 +55,7 @@ class DashboardSummary {
       knownPersonTodayCount: 0,
       unknownPersonTodayCount: 0,
       fallTodayCount: 0,
+      safetyAlertTodayCount: 0,
       environmentAlertTodayCount: 0,
       unacknowledgedCount: 0,
       criticalAlertCount: 0,
@@ -81,6 +84,9 @@ class DashboardSummary {
       knownPersonTodayCount: _intFromJson(json['known_person_today_count']),
       unknownPersonTodayCount: _intFromJson(json['unknown_person_today_count']),
       fallTodayCount: _intFromJson(json['fall_today_count']),
+      safetyAlertTodayCount: _intFromJson(
+        json['safety_alert_today_count'] ?? json['fall_today_count'],
+      ),
       environmentAlertTodayCount: _intFromJson(
         json['environment_alert_today_count'],
       ),

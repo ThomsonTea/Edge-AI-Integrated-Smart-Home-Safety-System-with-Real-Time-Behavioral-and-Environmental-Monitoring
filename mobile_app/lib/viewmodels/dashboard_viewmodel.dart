@@ -36,7 +36,7 @@ class DashboardViewModel extends ChangeNotifier {
       _errorMessage == null &&
       _summary.knownPersonTodayCount == 0 &&
       _summary.unknownPersonTodayCount == 0 &&
-      _summary.fallTodayCount == 0 &&
+      _summary.safetyAlertTodayCount == 0 &&
       _summary.environmentAlertTodayCount == 0 &&
       _summary.criticalAlertCount == 0 &&
       _summary.latestDetection == null;
