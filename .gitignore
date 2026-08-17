@@ -58,6 +58,9 @@ backend/storage/alerts/*
 backend/storage/profile_pictures/*
 !backend/storage/profile_pictures/.gitkeep
 
+#dev bootstrap sql
+backend/database/schema_dev.sql
+
 # ------------------------------------------
 # 4. mobile_app (Flutter / Dart)
 # ------------------------------------------
