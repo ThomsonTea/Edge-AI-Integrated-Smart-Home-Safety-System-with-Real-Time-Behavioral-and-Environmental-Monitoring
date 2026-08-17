@@ -3,6 +3,7 @@ import threading
 from typing import Any
 
 from app.models.event import AIEvent
+from app.services.confidence import confidence_score_for_api
 from app.services.notification_connection_manager import (
     notification_connection_manager,
 )
@@ -66,9 +67,7 @@ def notification_payload_for_event(event: AIEvent) -> dict[str, Any]:
         "event_type": event_type,
         "premise_id": event.premise_id,
         "profile_id": event.profile_id,
-        "confidence_score": (
-            float(confidence_score) if confidence_score is not None else None
-        ),
+        "confidence_score": confidence_score_for_api(confidence_score),
         "timestamp": timestamp_value,
         "image_path": event.image_path,
         "priority": priority_for_event_type(event_type),

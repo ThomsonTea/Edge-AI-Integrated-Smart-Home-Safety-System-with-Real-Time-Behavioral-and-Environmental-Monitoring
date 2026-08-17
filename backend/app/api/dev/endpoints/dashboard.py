@@ -13,6 +13,7 @@ from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
 from app.services.shared_camera import camera_service
+from app.services.confidence import confidence_score_for_api
 from app.services.sensor_service import sensor_service
 
 router = APIRouter()
@@ -107,11 +108,7 @@ def _event_to_response(event: AIEvent | None) -> Optional[dict]:
         "id": event.id,
         "event_type": event.event_type,
         "timestamp": event.timestamp,
-        "confidence_score": (
-            float(event.confidence_score)
-            if event.confidence_score is not None
-            else None
-        ),
+        "confidence_score": confidence_score_for_api(event.confidence_score),
         "image_path": event.image_path,
         "is_acknowledged": bool(event.is_acknowledged),
         "premise_id": event.premise_id,

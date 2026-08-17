@@ -4,13 +4,14 @@ from datetime import datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.database import get_db
 from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
-from app.models.sensor import SensorReading
+from app.models.device import Device
+from app.models.sensor import ReadingValue, Sensor, SensorReading
 
 router = APIRouter()
 
@@ -159,8 +160,13 @@ def get_sensor_analytics(
 
     readings = (
         db.query(SensorReading)
+        .join(Sensor, Sensor.device_id == SensorReading.sensor_id)
+        .join(Device, Device.id == Sensor.device_id)
+        .options(
+            joinedload(SensorReading.values).joinedload(ReadingValue.measurement_type)
+        )
         .filter(
-            SensorReading.premise_id == profile.premise_id,
+            Device.premise_id == profile.premise_id,
             SensorReading.recorded_at >= start_at,
         )
         .order_by(SensorReading.recorded_at.asc())
@@ -172,21 +178,18 @@ def get_sensor_analytics(
         "points": [
             {
                 "timestamp": reading.recorded_at,
-                "temperature": (
-                    float(reading.temperature)
-                    if reading.temperature is not None
-                    else None
-                ),
-                "humidity": (
-                    float(reading.humidity)
-                    if reading.humidity is not None
-                    else None
-                ),
-                "gas": reading.gas,
+                "temperature": _reading_value(reading, "temperature"),
+                "humidity": _reading_value(reading, "humidity"),
+                "gas": _reading_value(reading, "gas_level"),
             }
             for reading in readings
         ],
     }
+
+
+def _reading_value(reading: SensorReading, measurement_name: str) -> float | None:
+    value = reading.value_for(measurement_name)
+    return float(value) if value is not None else None
 
 
 @router.get("/events")

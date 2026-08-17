@@ -9,6 +9,7 @@ from ultralytics import YOLO
 
 from app.db.database import SessionLocal
 from app.models.event import AIEvent
+from app.models.device import Camera, Device
 from app.models.profile import Premise
 from app.services.ai_event_service import (
     create_ai_event,
@@ -16,6 +17,7 @@ from app.services.ai_event_service import (
 )
 from app.services.behavioral_anomaly_service import BehavioralAnomalyService
 from app.services.face_service import FaceService
+from app.services.confidence import normalize_confidence_score
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
@@ -27,10 +29,12 @@ class CameraService:
     def __init__(self):
         self.rtsp_url = os.getenv(
             "CAMERA_RTSP_URL",
-            "rtsp://ThomsonTea:Tyj030903@192.168.0.32/stream1"
+            "rtsp://ThomsonTea:Tyj030903@10.42.0.195/stream1"
         )
 
         self.camera_premise_id = self._read_camera_premise_id()
+        self.camera_device_id = self._read_camera_device_id()
+        self.detection_enabled = True
 
         print("⏳ Loading YOLOv8 Model...")
         self.model = YOLO("models/yolo26n.pt")
@@ -58,6 +62,7 @@ class CameraService:
         if self.is_camera_running:
             return
 
+        self._load_camera_configuration()
         self.is_camera_running = True
 
         thread = threading.Thread(
@@ -67,7 +72,7 @@ class CameraService:
         thread.start()
 
     def start_ai_detection_loop(self):
-        if self.is_ai_running:
+        if self.is_ai_running or not self.detection_enabled:
             return
 
         self.is_ai_running = True
@@ -284,6 +289,7 @@ class CameraService:
                     yolo_confidence=confidence_score,
                 ),
                 image_path=image_path,
+                source_device_id=self.camera_device_id,
                 is_acknowledged=False,
             )
 
@@ -334,7 +340,9 @@ class CameraService:
             event.event_type = classification["event_type"]
             event.profile_id = classification["profile_id"]
             event.image_path = image_path
-            event.confidence_score = classification["confidence_score"]
+            event.confidence_score = normalize_confidence_score(
+                classification["confidence_score"]
+            )
             db.commit()
 
             self._delete_snapshot_file(previous_image_path)
@@ -401,6 +409,8 @@ class CameraService:
                 event_type=event_type,
                 confidence_score=confidence_score,
                 image_path=image_path,
+                source_device_id=self.camera_device_id,
+                severity="critical",
                 is_acknowledged=False,
             )
 
@@ -589,3 +599,41 @@ class CameraService:
         except ValueError:
             print(f"⚠️ Ignoring invalid CAMERA_PREMISE_ID={raw_value}")
             return None
+
+    def _read_camera_device_id(self):
+        raw_value = os.getenv("CAMERA_DEVICE_ID")
+        if raw_value is None or raw_value.strip() == "":
+            return None
+
+        try:
+            return int(raw_value)
+        except ValueError:
+            print(f"⚠️ Ignoring invalid CAMERA_DEVICE_ID={raw_value}")
+            return None
+
+    def _load_camera_configuration(self) -> None:
+        db = SessionLocal()
+        try:
+            query = db.query(Camera).join(Device, Device.id == Camera.device_id)
+            if self.camera_device_id is not None:
+                query = query.filter(Camera.device_id == self.camera_device_id)
+            elif self.camera_premise_id is not None:
+                query = query.filter(Device.premise_id == self.camera_premise_id)
+
+            camera = (
+                query.filter(Device.enabled.is_(True))
+                .order_by(Camera.device_id.asc())
+                .first()
+            )
+            if camera is None:
+                print("⚠️ No enabled database camera found; using CAMERA_RTSP_URL")
+                return
+
+            self.camera_device_id = camera.device_id
+            self.camera_premise_id = camera.device.premise_id
+            self.rtsp_url = camera.stream_url
+            self.detection_enabled = bool(camera.detection_enabled)
+        except Exception as exc:
+            print(f"⚠️ Camera database configuration unavailable: {exc}")
+        finally:
+            db.close()

@@ -13,7 +13,8 @@ from typing import Any, Callable
 from dotenv import load_dotenv
 
 from app.db.database import SessionLocal
-from app.models.sensor import SensorReading
+from app.models.device import Device
+from app.models.sensor import MeasurementType, ReadingValue, Sensor, SensorReading
 from app.services.ai_event_service import create_ai_event
 
 load_dotenv()
@@ -90,6 +91,7 @@ class SensorService:
         baud_rate: int | None = None,
         enabled: bool | None = None,
         premise_id: int | None = None,
+        sensor_id: int | None = None,
         db_session_factory: Callable[[], Any] = SessionLocal,
         save_interval_seconds: int | None = None,
         gas_alert_threshold: int | None = None,
@@ -102,6 +104,7 @@ class SensorService:
             os.getenv("SENSOR_BAUD_RATE", str(DEFAULT_SENSOR_BAUD_RATE))
         )
         self.premise_id = premise_id if premise_id is not None else self._premise_id_from_env()
+        self.sensor_id = sensor_id if sensor_id is not None else self._sensor_id_from_env()
         self.enabled = (
             _bool_from_env("ENABLE_SENSOR_SERVICE", True)
             if enabled is None
@@ -262,6 +265,18 @@ class SensorService:
             return None
 
     @staticmethod
+    def _sensor_id_from_env() -> int | None:
+        raw_sensor_id = os.getenv("SENSOR_DEVICE_ID")
+        if raw_sensor_id is None or raw_sensor_id.strip() == "":
+            return None
+
+        try:
+            return int(raw_sensor_id)
+        except ValueError:
+            logger.warning("[SENSOR] Invalid SENSOR_DEVICE_ID=%s", raw_sensor_id)
+            return None
+
+    @staticmethod
     def _save_interval_seconds_from_env() -> int:
         raw_interval = os.getenv("SENSOR_SAVE_INTERVAL_SECONDS")
         if raw_interval is None or raw_interval.strip() == "":
@@ -307,15 +322,53 @@ class SensorService:
 
         db = self._db_session_factory()
         try:
+            sensor_context = self._resolve_sensor_context(db)
+            if sensor_context is None:
+                logger.warning("[SENSOR] No enabled sensor device is configured")
+                return False
+
+            sensor_id, premise_id = sensor_context
             reading = SensorReading(
-                premise_id=snapshot["premise_id"],
-                temperature=snapshot["temperature"],
-                humidity=snapshot["humidity"],
-                gas=snapshot["gas"],
-                sensor_status=snapshot["sensor_status"],
+                sensor_id=sensor_id,
                 recorded_at=now,
             )
             db.add(reading)
+            db.flush()
+
+            measurement_types = (
+                db.query(MeasurementType)
+                .filter(MeasurementType.name.in_(("temperature", "humidity", "gas_level")))
+                .all()
+            )
+            type_by_name = {item.name: item for item in measurement_types}
+            missing_types = {"temperature", "humidity", "gas_level"} - set(type_by_name)
+            if missing_types:
+                raise RuntimeError(
+                    "Missing measurement type seed data: " + ", ".join(sorted(missing_types))
+                )
+
+            reading.values.extend(
+                [
+                    ReadingValue(
+                        measurement_type_id=type_by_name["temperature"].id,
+                        value=snapshot["temperature"],
+                    ),
+                    ReadingValue(
+                        measurement_type_id=type_by_name["humidity"].id,
+                        value=snapshot["humidity"],
+                    ),
+                    ReadingValue(
+                        measurement_type_id=type_by_name["gas_level"].id,
+                        value=snapshot["gas"],
+                    ),
+                ]
+            )
+
+            device = db.query(Device).filter(Device.id == sensor_id).first()
+            if device is not None:
+                device.connection_status = "online"
+                device.last_heartbeat = now
+
             db.commit()
             self._last_saved_at = now
             logger.info(
@@ -323,7 +376,7 @@ class SensorService:
                 snapshot["temperature"],
                 snapshot["humidity"],
                 snapshot["gas"],
-                snapshot["premise_id"],
+                premise_id,
             )
             return True
         except Exception:
@@ -334,7 +387,7 @@ class SensorService:
             db.close()
 
     def _latest_snapshot_for_persistence(self) -> dict[str, Any] | None:
-        if self.premise_id is None:
+        if self.premise_id is None and self.sensor_id is None:
             logger.warning(
                 "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping persistence"
             )
@@ -355,11 +408,9 @@ class SensorService:
 
         try:
             return {
-                "premise_id": self.premise_id,
                 "temperature": Decimal(str(snapshot["temperature"])),
                 "humidity": Decimal(str(snapshot["humidity"])),
                 "gas": int(snapshot["gas"]),
-                "sensor_status": snapshot["status"],
             }
         except (InvalidOperation, TypeError, ValueError):
             logger.warning("[SENSOR] Latest sensor values are invalid; skipping persistence")
@@ -374,7 +425,7 @@ class SensorService:
         if not self.enabled:
             return
 
-        if self.premise_id is None:
+        if self.premise_id is None and self.sensor_id is None:
             logger.warning(
                 "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping environmental alerts"
             )
@@ -440,7 +491,7 @@ class SensorService:
         confidence_score: float,
         now: datetime,
     ) -> bool:
-        if self.premise_id is None:
+        if self.premise_id is None and self.sensor_id is None:
             logger.warning(
                 "[SENSOR] SENSOR_PREMISE_ID is not configured; skipping %s",
                 event_type,
@@ -455,12 +506,20 @@ class SensorService:
 
         db = self._db_session_factory()
         try:
+            sensor_context = self._resolve_sensor_context(db)
+            source_device_id = sensor_context[0] if sensor_context is not None else None
+            premise_id = sensor_context[1] if sensor_context is not None else self.premise_id
+            if premise_id is None:
+                return False
+
             create_ai_event(
                 db,
-                premise_id=self.premise_id,
+                premise_id=premise_id,
                 event_type=event_type,
                 confidence_score=round(min(max(confidence_score, 0), 100), 2),
                 image_path=None,
+                source_device_id=source_device_id,
+                severity="critical",
             )
             self._last_alert_at[event_type] = now
             logger.warning(
@@ -474,6 +533,22 @@ class SensorService:
             return False
         finally:
             db.close()
+
+    def _resolve_sensor_context(self, db) -> tuple[int, int] | None:
+        query = db.query(Sensor).join(Device, Device.id == Sensor.device_id)
+
+        if self.sensor_id is not None:
+            query = query.filter(Sensor.device_id == self.sensor_id)
+        elif self.premise_id is not None:
+            query = query.filter(Device.premise_id == self.premise_id)
+
+        sensor = query.filter(Device.enabled.is_(True)).order_by(Sensor.device_id.asc()).first()
+        if sensor is None or sensor.device is None:
+            return None
+
+        self.sensor_id = sensor.device_id
+        self.premise_id = sensor.device.premise_id
+        return sensor.device_id, sensor.device.premise_id
 
     @staticmethod
     def _threshold_confidence(value: float, threshold: float) -> float:

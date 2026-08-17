@@ -1,14 +1,21 @@
-from app.models.profile import Profile, NotificationRouting, Premise
-from app.models.device import Device, SystemConfig
+from app.models.profile import EmergencyContact, Premise, PremiseSetting, Profile
+from app.models.device import AIDetectionType, Camera, CameraAIFeature, Device
 from app.models.event import AIEvent
-from app.models.sensor import SensorReading
+from app.models.sensor import MeasurementType, ReadingValue, Sensor, SensorCapability, SensorReading
 
 __all__ = [
     "Profile",
-    "NotificationRouting",
     "Premise",
+    "PremiseSetting",
+    "EmergencyContact",
     "Device",
-    "SystemConfig",
+    "Camera",
+    "AIDetectionType",
+    "CameraAIFeature",
+    "Sensor",
+    "MeasurementType",
+    "SensorCapability",
     "AIEvent",
     "SensorReading",
+    "ReadingValue",
 ]

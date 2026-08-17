@@ -1,9 +1,12 @@
 import unittest
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from app.api.dev.api import api_router
 from app.models.event import AIEvent
+from app.models.device import Device
+from app.models.sensor import MeasurementType, Sensor
 from app.services.sensor_service import SensorService
 
 
@@ -20,6 +23,11 @@ class FakeDb:
     def commit(self):
         self.committed = True
 
+    def flush(self):
+        for item in self.added:
+            if getattr(item, "id", None) is None:
+                item.id = len(self.added)
+
     def rollback(self):
         self.rolled_back = True
 
@@ -31,6 +39,42 @@ class FakeDb:
             model.id = len(self.added)
             if model.timestamp is None:
                 model.timestamp = datetime.now(timezone.utc)
+
+    def query(self, model):
+        return FakeQuery(model)
+
+
+class FakeQuery:
+    def __init__(self, model):
+        self.model = model
+
+    def join(self, *args, **kwargs):
+        return self
+
+    def filter(self, *args, **kwargs):
+        return self
+
+    def order_by(self, *args, **kwargs):
+        return self
+
+    def all(self):
+        if self.model is MeasurementType:
+            return [
+                SimpleNamespace(id=1, name="temperature"),
+                SimpleNamespace(id=2, name="humidity"),
+                SimpleNamespace(id=3, name="gas_level"),
+            ]
+        return []
+
+    def first(self):
+        if self.model is Sensor:
+            return SimpleNamespace(
+                device_id=10,
+                device=SimpleNamespace(id=10, premise_id=1),
+            )
+        if self.model is Device:
+            return SimpleNamespace(id=10, connection_status="offline", last_heartbeat=None)
+        return None
 
 
 class SensorServiceTests(unittest.TestCase):
@@ -146,11 +190,12 @@ class SensorServiceTests(unittest.TestCase):
         self.assertTrue(db.closed)
         self.assertEqual(len(db.added), 1)
         reading = db.added[0]
-        self.assertEqual(reading.premise_id, 1)
-        self.assertEqual(str(reading.temperature), "30.7")
-        self.assertEqual(str(reading.humidity), "70.0")
-        self.assertEqual(reading.gas, 966)
-        self.assertEqual(reading.sensor_status, "connected")
+        self.assertEqual(reading.sensor_id, 10)
+        values = {
+            value.measurement_type_id: str(value.value)
+            for value in reading.values
+        }
+        self.assertEqual(values, {1: "30.7", 2: "70.0", 3: "966"})
 
     def test_persist_latest_reading_skips_missing_premise_id(self):
         db = FakeDb()

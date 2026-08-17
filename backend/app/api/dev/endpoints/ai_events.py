@@ -12,6 +12,7 @@ from app.middleware import get_current_user
 from app.models.event import AIEvent
 from app.models.profile import Profile
 from app.services.ai_event_service import create_ai_event
+from app.services.confidence import confidence_score_for_api
 from app.services.notification_service import notification_payload_for_event
 from app.services.user_service import is_manager, is_owner
 
@@ -80,11 +81,7 @@ def _event_to_response(event: AIEvent) -> dict:
         "id": event.id,
         "type": event_type,
         "event_type": event_type,
-        "confidence_score": (
-            float(event.confidence_score)
-            if event.confidence_score is not None
-            else None
-        ),
+        "confidence_score": confidence_score_for_api(event.confidence_score),
         "image_path": event.image_path,
         "is_acknowledged": bool(event.is_acknowledged),
         "timestamp": event.timestamp,

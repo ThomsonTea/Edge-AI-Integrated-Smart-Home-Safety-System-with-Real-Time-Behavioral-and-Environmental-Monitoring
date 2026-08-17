@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.event import AIEvent
 from app.models.profile import Profile
+from app.services.confidence import normalize_confidence_score
 from app.services.notification_service import broadcast_ai_event_once
 
 
@@ -17,13 +18,19 @@ def create_ai_event(
     confidence_score: float | Decimal | None,
     image_path: str | None,
     profile_id: int | None = None,
+    source_device_id: int | None = None,
+    sensor_reading_id: int | None = None,
+    severity: str = "medium",
     is_acknowledged: bool = False,
 ) -> AIEvent:
     event = AIEvent(
         premise_id=premise_id,
         profile_id=profile_id,
+        source_device_id=source_device_id,
+        sensor_reading_id=sensor_reading_id,
         event_type=event_type,
-        confidence_score=confidence_score,
+        severity=severity,
+        confidence_score=normalize_confidence_score(confidence_score),
         image_path=image_path,
         is_acknowledged=is_acknowledged,
     )
@@ -60,6 +67,7 @@ def create_ai_event_from_classification(
     premise_id: int,
     classification: dict[str, Any],
     image_path: str,
+    source_device_id: int | None = None,
     is_acknowledged: bool = False,
 ) -> AIEvent:
     return create_ai_event(
@@ -69,5 +77,6 @@ def create_ai_event_from_classification(
         profile_id=classification["profile_id"],
         confidence_score=classification["confidence_score"],
         image_path=image_path,
+        source_device_id=source_device_id,
         is_acknowledged=is_acknowledged,
     )
