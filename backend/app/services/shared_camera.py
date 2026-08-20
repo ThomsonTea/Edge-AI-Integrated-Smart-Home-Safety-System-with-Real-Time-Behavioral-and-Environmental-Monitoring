@@ -1,3 +1,3 @@
-from app.services.camera_service import CameraService
+from app.services.camera_manager import CameraManager
 
-camera_service = CameraService()
+camera_service = CameraManager()

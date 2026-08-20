@@ -6,8 +6,9 @@ import '../../theme/app_spacing.dart';
 
 class CameraWidget extends StatelessWidget {
   final String? jwtToken;
+  final int? cameraId;
 
-  const CameraWidget({super.key, required this.jwtToken});
+  const CameraWidget({super.key, required this.jwtToken, this.cameraId});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +35,9 @@ class CameraWidget extends StatelessWidget {
             )
           : Mjpeg(
               isLive: true,
-              stream: '${AppConfig.apiBaseUrl}/camera/video_feed',
+              stream: cameraId == null
+                  ? '${AppConfig.apiBaseUrl}/camera/video_feed'
+                  : '${AppConfig.apiBaseUrl}/camera/$cameraId/video_feed',
               headers: {'Authorization': 'Bearer $token'},
               error: (context, error, stack) {
                 return Center(

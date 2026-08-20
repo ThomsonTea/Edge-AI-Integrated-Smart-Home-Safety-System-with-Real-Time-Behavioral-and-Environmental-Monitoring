@@ -2,6 +2,7 @@ import cv2
 import os
 import time
 import threading
+from urllib.parse import quote, urlsplit, urlunsplit
 from datetime import datetime
 from pathlib import Path
 
@@ -18,6 +19,7 @@ from app.services.ai_event_service import (
 from app.services.behavioral_anomaly_service import BehavioralAnomalyService
 from app.services.face_service import FaceService
 from app.services.confidence import normalize_confidence_score
+from app.services.camera_credentials import decrypt_password
 
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
 
@@ -26,14 +28,14 @@ ALERT_STORAGE_DIR = BASE_DIR / "storage" / "alerts"
 
 
 class CameraService:
-    def __init__(self):
+    def __init__(self, camera_device_id: int | None = None):
         self.rtsp_url = os.getenv(
             "CAMERA_RTSP_URL",
             "rtsp://ThomsonTea:Tyj030903@10.42.0.195/stream1"
         )
 
         self.camera_premise_id = self._read_camera_premise_id()
-        self.camera_device_id = self._read_camera_device_id()
+        self.camera_device_id = camera_device_id or self._read_camera_device_id()
         self.detection_enabled = True
 
         print("⏳ Loading YOLOv8 Model...")
@@ -57,6 +59,7 @@ class CameraService:
         self.lock = threading.Lock()
         self.is_camera_running = False
         self.is_ai_running = False
+        self._stop_event = threading.Event()
 
     def start_camera_loop(self):
         if self.is_camera_running:
@@ -70,6 +73,11 @@ class CameraService:
             daemon=True
         )
         thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+        self.is_camera_running = False
+        self.is_ai_running = False
 
     def start_ai_detection_loop(self):
         if self.is_ai_running or not self.detection_enabled:
@@ -109,7 +117,7 @@ class CameraService:
 
         print("🚀 Camera loop started.")
 
-        while True:
+        while not self._stop_event.is_set():
             success, frame = cap.read()
 
             if not success:
@@ -128,7 +136,7 @@ class CameraService:
     def _ai_detection_loop(self):
         print("🧠 AI detection loop started.")
 
-        while True:
+        while not self._stop_event.is_set():
             time.sleep(0.5)
 
             with self.lock:
@@ -226,7 +234,7 @@ class CameraService:
     def generate_frames(self):
         show_box_seconds = 1.5
 
-        while True:
+        while not self._stop_event.is_set():
             with self.lock:
                 if self.latest_frame is None:
                     frame_to_send = None
@@ -631,9 +639,23 @@ class CameraService:
 
             self.camera_device_id = camera.device_id
             self.camera_premise_id = camera.device.premise_id
-            self.rtsp_url = camera.stream_url
+            self.rtsp_url = self._stream_url_with_credentials(camera)
             self.detection_enabled = bool(camera.detection_enabled)
         except Exception as exc:
             print(f"⚠️ Camera database configuration unavailable: {exc}")
         finally:
             db.close()
+
+    @staticmethod
+    def _stream_url_with_credentials(camera: Camera) -> str:
+        if not camera.username:
+            return camera.stream_url
+        parsed = urlsplit(camera.stream_url)
+        credentials = quote(camera.username, safe="")
+        password = decrypt_password(camera.encrypted_password)
+        if password:
+            credentials += ":" + quote(password, safe="")
+        host = parsed.hostname or ""
+        if parsed.port:
+            host += f":{parsed.port}"
+        return urlunsplit((parsed.scheme, f"{credentials}@{host}", parsed.path, parsed.query, parsed.fragment))
