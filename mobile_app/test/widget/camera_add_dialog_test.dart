@@ -73,8 +73,9 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Camera IP address *'), findsOneWidget);
-    expect(find.text('ONVIF port *'), findsOneWidget);
-    expect(find.text('Stream URL (optional)'), findsOneWidget);
+    expect(find.text('Advanced setup'), findsOneWidget);
+    expect(find.text('Camera setup port'), findsNothing);
+    expect(find.text('Direct stream URL'), findsNothing);
     expect(find.text('Add camera'), findsOneWidget);
     expect(find.textContaining('Tapo'), findsNothing);
     expect(find.text('Scan'), findsNothing);
@@ -99,13 +100,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Add camera'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Advanced setup'));
+    await tester.pumpAndSettle();
 
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Camera IP address *'),
       '192.168.1.50',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Stream URL (optional)'),
+      find.widgetWithText(TextFormField, 'Direct stream URL'),
       'rtsp://192.168.1.50:554/stream1',
     );
     await tester.enterText(

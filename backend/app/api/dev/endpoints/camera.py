@@ -16,7 +16,11 @@ from app.schemas.camera import (
     CameraUpdate,
 )
 from app.services.camera_credentials import encrypt_password
-from app.services.camera_discovery import discover_onvif_cameras, resolve_onvif_stream
+from app.services.camera_discovery import (
+    ONVIFConnectionError,
+    discover_onvif_cameras,
+    resolve_onvif_stream,
+)
 from app.services.shared_camera import camera_service
 from app.services.user_service import UserService
 
@@ -112,7 +116,7 @@ def create_camera(request: CameraCreate, db: Session = Depends(get_db), token: d
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="A device with this name already exists at the premise.")
-    camera_service.start_camera(camera.device_id)
+    camera_service.start_camera_async(camera.device_id)
     return _response(camera)
 
 
@@ -132,7 +136,7 @@ def update_camera(camera_id: int, request: CameraUpdate, db: Session = Depends(g
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="A device with this name already exists at the premise.")
-    camera_service.restart_camera(camera_id, enabled=camera.device.enabled)
+    camera_service.restart_camera_async(camera_id, enabled=camera.device.enabled)
     return _response(camera)
 
 
@@ -195,6 +199,16 @@ def resolve_camera_stream(
         parsed = urlsplit(stream_url)
         clean_url = _redacted_url(stream_url)
         _connection_url(clean_url, request.username, request.password)
+    except ONVIFConnectionError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Automatic setup could not reach this camera. Confirm its IP "
+                "and enable third-party camera access (sometimes called ONVIF) "
+                "in the manufacturer's app, "
+                "or use Advanced setup with a direct stream URL."
+            ),
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=422,

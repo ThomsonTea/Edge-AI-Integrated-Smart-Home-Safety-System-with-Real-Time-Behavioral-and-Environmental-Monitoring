@@ -1,11 +1,13 @@
 import os
 import unittest
+from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
 from app.api.dev.api import api_router
 from app.api.dev.endpoints.camera import _connection_url
 from app.services.camera_credentials import decrypt_password, encrypt_password
+from app.services.camera_discovery import ONVIFConnectionError, resolve_onvif_stream
 
 
 class CameraManagementTests(unittest.TestCase):
@@ -41,6 +43,42 @@ class CameraManagementTests(unittest.TestCase):
                 os.environ.pop("TOKEN_SECRET_KEY", None)
             else:
                 os.environ["TOKEN_SECRET_KEY"] = previous
+
+    @patch("app.services.camera_discovery.socket.create_connection")
+    def test_unreachable_onvif_port_fails_fast(self, connect):
+        connect.side_effect = TimeoutError("timed out")
+
+        with self.assertRaises(ONVIFConnectionError):
+            resolve_onvif_stream(
+                "http://192.168.1.50:2020/onvif/device_service",
+                "camera-user",
+                "camera-password",
+            )
+
+        connect.assert_called_once_with(("192.168.1.50", 2020), timeout=3)
+
+    @patch("app.services.camera_discovery.ONVIFCamera")
+    @patch("app.services.camera_discovery.socket.create_connection")
+    def test_onvif_resolution_uses_bounded_transport(self, connect, camera_type):
+        connection = MagicMock()
+        connect.return_value = connection
+        profile = MagicMock(token="profile-token")
+        media = MagicMock()
+        media.GetProfiles.return_value = [profile]
+        media.GetStreamUri.return_value = MagicMock(Uri="rtsp://192.168.1.50/stream1")
+        camera_type.return_value.create_media_service.return_value = media
+
+        result = resolve_onvif_stream(
+            "http://192.168.1.50:2020/onvif/device_service",
+            "camera-user",
+            "camera-password",
+        )
+
+        self.assertEqual(result, "rtsp://192.168.1.50/stream1")
+        connection.close.assert_called_once()
+        transport = camera_type.call_args.kwargs["transport"]
+        self.assertEqual(transport.load_timeout, 3)
+        self.assertEqual(transport.operation_timeout, 5)
 
 
 if __name__ == "__main__":

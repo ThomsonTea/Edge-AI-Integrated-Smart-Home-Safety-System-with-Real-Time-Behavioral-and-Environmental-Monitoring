@@ -297,7 +297,7 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
       _username = TextEditingController(),
       _password = TextEditingController(),
       _cameraIp = TextEditingController(),
-      _onvifPort = TextEditingController(text: '80');
+      _onvifPort = TextEditingController(text: '2020');
   bool detection = true, snapshot = true, enabled = true;
 
   bool get isEditing => widget.camera != null;
@@ -410,30 +410,6 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
                         const SizedBox(height: AppSpacing.md),
                         _responsivePair(
                           TextFormField(
-                            controller: _onvifPort,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'ONVIF port *',
-                              hintText: '80',
-                              prefixIcon: Icon(Icons.settings_ethernet),
-                            ),
-                            validator: _onvifPortValidator,
-                          ),
-                          TextFormField(
-                            controller: _url,
-                            keyboardType: TextInputType.url,
-                            decoration: const InputDecoration(
-                              labelText: 'Stream URL (optional)',
-                              hintText: 'rtsp://192.168.1.50:554/stream1',
-                              prefixIcon: Icon(Icons.link),
-                              helperText: 'Use this if ONVIF is unavailable.',
-                            ),
-                            validator: _streamUrlValidator,
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        _responsivePair(
-                          TextFormField(
                             controller: _name,
                             decoration: const InputDecoration(
                               labelText: 'Camera name *',
@@ -472,6 +448,46 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
                             ),
                             validator: _credentialValidator,
                           ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: const EdgeInsets.only(
+                            bottom: AppSpacing.md,
+                          ),
+                          leading: const Icon(Icons.tune_outlined),
+                          title: const Text('Advanced setup'),
+                          subtitle: const Text(
+                            'Only needed when automatic camera setup fails.',
+                          ),
+                          children: [
+                            _responsivePair(
+                              TextFormField(
+                                controller: _onvifPort,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Camera setup port',
+                                  hintText: '2020',
+                                  prefixIcon: Icon(Icons.settings_ethernet),
+                                  helperText:
+                                      'Usually 2020; some cameras use 80.',
+                                ),
+                                validator: _onvifPortValidator,
+                              ),
+                              TextFormField(
+                                controller: _url,
+                                keyboardType: TextInputType.url,
+                                decoration: const InputDecoration(
+                                  labelText: 'Direct stream URL',
+                                  hintText: 'rtsp://192.168.1.50:554/stream1',
+                                  prefixIcon: Icon(Icons.link),
+                                  helperText:
+                                      'Optional. Skips automatic setup when provided.',
+                                ),
+                                validator: _streamUrlValidator,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         _responsivePair(
@@ -681,22 +697,34 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
         _password.text.isEmpty) {
       return true;
     }
-    final camera = _cameraFromIp();
+    final configuredPort = int.tryParse(_onvifPort.text.trim());
+    final camera = _cameraFromIp(port: configuredPort);
     if (camera == null) return false;
-    final streamUrl = await widget.viewModel.resolveStream(
+    var streamUrl = await widget.viewModel.resolveStream(
       camera: camera,
       username: _username.text.trim(),
       password: _password.text,
     );
+    // Most supported home cameras use 2020, while some use the HTTP default.
+    // Try both automatically before asking the user for advanced setup.
+    if (streamUrl == null && configuredPort == 2020) {
+      final fallbackCamera = _cameraFromIp(port: 80);
+      if (fallbackCamera != null) {
+        streamUrl = await widget.viewModel.resolveStream(
+          camera: fallbackCamera,
+          username: _username.text.trim(),
+          password: _password.text,
+        );
+      }
+    }
     if (streamUrl == null) return false;
     _url.text = streamUrl;
     return true;
   }
 
-  DiscoveredCamera? _cameraFromIp() {
+  DiscoveredCamera? _cameraFromIp({int? port}) {
     final host = _cameraIp.text.trim();
     if (_cameraIpValidator(host) != null) return null;
-    final port = int.tryParse(_onvifPort.text.trim());
     if (port == null || port < 1 || port > 65535) return null;
     return DiscoveredCamera(
       id: 'manual-onvif-$host',

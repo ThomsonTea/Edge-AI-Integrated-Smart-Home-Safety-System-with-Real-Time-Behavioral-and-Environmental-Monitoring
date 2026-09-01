@@ -58,10 +58,29 @@ class CameraManager:
         worker.start_ai_detection_loop()
         return worker
 
+    def start_camera_async(self, camera_id: int) -> None:
+        threading.Thread(
+            target=self._start_camera_safely,
+            args=(camera_id,),
+            name=f"camera-start-{camera_id}",
+            daemon=True,
+        ).start()
+
+    def _start_camera_safely(self, camera_id: int) -> None:
+        try:
+            self.start_camera(camera_id)
+        except Exception as exc:
+            print(f"Camera {camera_id} background startup failed: {exc}")
+
     def restart_camera(self, camera_id: int, enabled: bool = True):
         self.stop_camera(camera_id)
         if enabled:
             self.start_camera(camera_id)
+
+    def restart_camera_async(self, camera_id: int, enabled: bool = True) -> None:
+        self.stop_camera(camera_id)
+        if enabled:
+            self.start_camera_async(camera_id)
 
     def stop_camera(self, camera_id: int):
         with self._lock:

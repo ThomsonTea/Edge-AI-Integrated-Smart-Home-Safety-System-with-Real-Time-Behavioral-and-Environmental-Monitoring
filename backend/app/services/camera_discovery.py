@@ -6,9 +6,16 @@ from urllib.parse import urlsplit
 from xml.etree import ElementTree
 
 from onvif import ONVIFCamera
+from zeep.transports import Transport
 
 
 DISCOVERY_ADDRESS = ("239.255.255.250", 3702)
+ONVIF_CONNECT_TIMEOUT_SECONDS = 3
+ONVIF_OPERATION_TIMEOUT_SECONDS = 5
+
+
+class ONVIFConnectionError(ValueError):
+    """The camera's ONVIF service could not be reached quickly."""
 
 
 def discover_onvif_cameras(timeout_seconds: float = 3.0) -> list[dict]:
@@ -69,7 +76,29 @@ def resolve_onvif_stream(service_url: str, username: str, password: str) -> str:
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Invalid ONVIF service URL.")
     _ensure_local_camera_host(parsed.hostname)
-    camera = ONVIFCamera(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80), username, password)
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        connection = socket.create_connection(
+            (parsed.hostname, port),
+            timeout=ONVIF_CONNECT_TIMEOUT_SECONDS,
+        )
+        connection.close()
+    except (OSError, TimeoutError) as exc:
+        raise ONVIFConnectionError(
+            f"ONVIF is not reachable on port {port}."
+        ) from exc
+
+    transport = Transport(
+        timeout=ONVIF_CONNECT_TIMEOUT_SECONDS,
+        operation_timeout=ONVIF_OPERATION_TIMEOUT_SECONDS,
+    )
+    camera = ONVIFCamera(
+        parsed.hostname,
+        port,
+        username,
+        password,
+        transport=transport,
+    )
     media = camera.create_media_service()
     profiles = media.GetProfiles()
     if not profiles:
