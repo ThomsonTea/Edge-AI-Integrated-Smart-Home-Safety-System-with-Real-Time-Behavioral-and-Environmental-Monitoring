@@ -67,6 +67,7 @@ class NotificationViewModel extends ChangeNotifier {
   DateTime? _customEndDate;
   final Set<int> _acknowledgingEventIds = <int>{};
   final Set<int> _deletingEventIds = <int>{};
+  final Set<int> _pinningEventIds = <int>{};
   String? _currentUserRole;
 
   List<AiEvent> get events => _events;
@@ -175,6 +176,8 @@ class NotificationViewModel extends ChangeNotifier {
   bool isDeleting(AiEvent event) {
     return _deletingEventIds.contains(event.id);
   }
+
+  bool isPinning(AiEvent event) => _pinningEventIds.contains(event.id);
 
   List<AiEvent> get visibleUnacknowledgedEvents {
     return filteredEvents.where((event) => !event.isAcknowledged).toList();
@@ -366,6 +369,28 @@ class NotificationViewModel extends ChangeNotifier {
       debugPrint('Error deleting notification: $error');
     } finally {
       _deletingEventIds.remove(event.id);
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleEventPin(AiEvent event) async {
+    if (!canDeleteEvents || _pinningEventIds.contains(event.id)) return;
+    _pinningEventIds.add(event.id);
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final updated = await _eventService.setEventPinned(
+        event.id,
+        isPinned: !event.isPinned,
+      );
+      _events = _events
+          .map((existing) => existing.id == updated.id ? updated : existing)
+          .toList();
+    } catch (error) {
+      _errorMessage = error.toString();
+      debugPrint('Error changing event pin: $error');
+    } finally {
+      _pinningEventIds.remove(event.id);
       notifyListeners();
     }
   }

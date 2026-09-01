@@ -121,6 +121,12 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   label: 'Status',
                   value: event.isAcknowledged ? 'Acknowledged' : 'New',
                 ),
+                _DetailRow(
+                  label: 'Retention',
+                  value: event.isPinned
+                      ? 'Pinned — keep permanently'
+                      : 'Standard policy',
+                ),
               ],
             ),
           ),
@@ -147,6 +153,25 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ),
             ),
           ),
+        if (_viewModel.canManageEvent) ...[
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: _viewModel.isPinning ? null : _viewModel.togglePin,
+              icon: _viewModel.isPinning
+                  ? const SizedBox(
+                      width: AppSpacing.lg,
+                      height: AppSpacing.lg,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      event.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    ),
+              label: Text(event.isPinned ? 'Unpin Event' : 'Pin Event'),
+            ),
+          ),
+        ],
       ],
     );
   }

@@ -52,11 +52,23 @@ class PremiseSetting(Base):
             "image_retention_days BETWEEN 1 AND 3650",
             name="ck_premise_settings_retention",
         ),
+        CheckConstraint(
+            "event_retention_days BETWEEN 1 AND 3650",
+            name="ck_premise_settings_event_retention",
+        ),
+        CheckConstraint(
+            "sensor_retention_days BETWEEN 1 AND 3650",
+            name="ck_premise_settings_sensor_retention",
+        ),
     )
 
     premise_id = Column(Integer, ForeignKey("premises.id", ondelete="CASCADE"), primary_key=True)
     auto_delete_images = Column(Boolean, nullable=False, default=True)
     image_retention_days = Column(Integer, nullable=False, default=30)
+    event_retention_days = Column(Integer, nullable=False, default=90)
+    sensor_retention_days = Column(Integer, nullable=False, default=30)
+    preserve_unacknowledged = Column(Boolean, nullable=False, default=True)
+    preserve_critical = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
 

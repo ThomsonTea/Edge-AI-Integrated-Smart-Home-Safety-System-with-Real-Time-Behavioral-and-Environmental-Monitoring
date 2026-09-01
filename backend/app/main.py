@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from app.api.dev.api import api_router
 from app.services.shared_camera import camera_service
 from app.services.sensor_service import sensor_service
+from app.services.retention_scheduler import retention_scheduler
 
 app = FastAPI(title="Smart Home Security API")
 
@@ -38,6 +39,12 @@ def start_camera_services():
     camera_service.start_camera_loop()
     camera_service.start_ai_detection_loop()
     sensor_service.start()
+    retention_scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_background_services():
+    retention_scheduler.stop()
 
 @app.get("/")
 def read_root():

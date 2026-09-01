@@ -12,10 +12,20 @@ CREATE TABLE premise_settings (
                             REFERENCES premises(id) ON DELETE CASCADE,
     auto_delete_images      BOOLEAN NOT NULL DEFAULT TRUE,
     image_retention_days    INTEGER NOT NULL DEFAULT 30,
+    event_retention_days    INTEGER NOT NULL DEFAULT 90,
+    sensor_retention_days   INTEGER NOT NULL DEFAULT 30,
+    preserve_unacknowledged BOOLEAN NOT NULL DEFAULT TRUE,
+    preserve_critical       BOOLEAN NOT NULL DEFAULT TRUE,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_premise_settings_retention CHECK (
         image_retention_days BETWEEN 1 AND 3650
+    ),
+    CONSTRAINT ck_premise_settings_event_retention CHECK (
+        event_retention_days BETWEEN 1 AND 3650
+    ),
+    CONSTRAINT ck_premise_settings_sensor_retention CHECK (
+        sensor_retention_days BETWEEN 1 AND 3650
     )
 );
 
@@ -185,6 +195,7 @@ CREATE TABLE ai_events (
     confidence_score    NUMERIC(4,3),
     image_path          TEXT,
     is_acknowledged     BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pinned           BOOLEAN NOT NULL DEFAULT FALSE,
     timestamp           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT ck_ai_events_severity CHECK (
         severity IN ('low', 'medium', 'high', 'critical')
@@ -203,6 +214,9 @@ CREATE INDEX ix_ai_events_sensor_reading
     ON ai_events(sensor_reading_id);
 CREATE INDEX ix_ai_events_profile
     ON ai_events(profile_id);
+CREATE INDEX ix_ai_events_retention_cleanup
+    ON ai_events(premise_id, timestamp)
+    WHERE is_pinned = FALSE AND is_acknowledged = TRUE;
 
 -- Seed the measurement types currently supported by the application.
 INSERT INTO measurement_types (name, default_unit)

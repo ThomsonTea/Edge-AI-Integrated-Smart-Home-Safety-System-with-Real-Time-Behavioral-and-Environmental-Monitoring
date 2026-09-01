@@ -25,6 +25,7 @@ class AIEvent(Base):
     confidence_score = Column(Numeric(4, 3))
     image_path = Column(Text)
     is_acknowledged = Column(Boolean, nullable=False, default=False)
+    is_pinned = Column(Boolean, nullable=False, default=False)
     timestamp = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     premise = relationship("Premise", back_populates="events")

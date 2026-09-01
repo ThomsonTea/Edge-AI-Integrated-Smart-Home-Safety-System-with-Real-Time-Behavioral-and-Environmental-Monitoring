@@ -7,6 +7,7 @@ from .endpoints import user
 from .endpoints import camera
 from .endpoints import dashboard
 from .endpoints import notifications_ws
+from .endpoints import premise_settings
 from .endpoints import profile_me
 from .endpoints import session
 from .endpoints import sensors
@@ -21,5 +22,6 @@ api_router.include_router(ai_events.router, prefix="/ai_events", tags=["ai_event
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(sensors.router, prefix="/sensors", tags=["sensors"])
+api_router.include_router(premise_settings.router, prefix="/premise/settings", tags=["premise settings"])
 api_router.include_router(notifications_ws.router, tags=["notifications"])
 api_router.include_router(session.router, tags=["session"])

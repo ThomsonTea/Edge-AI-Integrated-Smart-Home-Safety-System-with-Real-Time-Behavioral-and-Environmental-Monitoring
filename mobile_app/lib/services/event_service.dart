@@ -120,6 +120,23 @@ class EventService {
     );
   }
 
+  Future<AiEvent> setEventPinned(int id, {required bool isPinned}) async {
+    _validateEventId(id);
+    final response = await _put(
+      Uri.parse('$baseUrl/ai_events/$id/pin'),
+      body: jsonEncode({'is_pinned': isPinned}),
+    );
+    if (response.statusCode == 200) {
+      return _eventFromResponse(response);
+    }
+    throw Exception(
+      _errorMessage(
+        fallback: isPinned ? 'Failed to pin event' : 'Failed to unpin event',
+        response: response,
+      ),
+    );
+  }
+
   Future<List<AiEvent>> acknowledgeVisibleEvents(List<int> ids) async {
     final eventIds = ids.where((id) => id > 0).toSet().toList();
     if (eventIds.isEmpty) return const [];

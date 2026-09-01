@@ -8,6 +8,7 @@ class AppRoutes {
   static const notificationCenter = '/notifications';
   static const analytics = '/analytics';
   static const profile = '/profile';
+  static const dataStorage = '/settings/data-storage';
 
   static const userAccess = '/users';
 }

@@ -296,7 +296,8 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
       _url = TextEditingController(),
       _username = TextEditingController(),
       _password = TextEditingController(),
-      _cameraIp = TextEditingController();
+      _cameraIp = TextEditingController(),
+      _onvifPort = TextEditingController(text: '80');
   bool detection = true, snapshot = true, enabled = true;
 
   bool get isEditing => widget.camera != null;
@@ -320,7 +321,15 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
 
   @override
   void dispose() {
-    for (final c in [_name, _location, _url, _username, _password, _cameraIp]) {
+    for (final c in [
+      _name,
+      _location,
+      _url,
+      _username,
+      _password,
+      _cameraIp,
+      _onvifPort,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -398,6 +407,30 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildCameraIpField(),
+                        const SizedBox(height: AppSpacing.md),
+                        _responsivePair(
+                          TextFormField(
+                            controller: _onvifPort,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'ONVIF port *',
+                              hintText: '80',
+                              prefixIcon: Icon(Icons.settings_ethernet),
+                            ),
+                            validator: _onvifPortValidator,
+                          ),
+                          TextFormField(
+                            controller: _url,
+                            keyboardType: TextInputType.url,
+                            decoration: const InputDecoration(
+                              labelText: 'Stream URL (optional)',
+                              hintText: 'rtsp://192.168.1.50:554/stream1',
+                              prefixIcon: Icon(Icons.link),
+                              helperText: 'Use this if ONVIF is unavailable.',
+                            ),
+                            validator: _streamUrlValidator,
+                          ),
+                        ),
                         const SizedBox(height: AppSpacing.md),
                         _responsivePair(
                           TextFormField(
@@ -588,6 +621,29 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
     return null;
   }
 
+  String? _onvifPortValidator(String? value) {
+    final port = int.tryParse((value ?? '').trim());
+    if (port == null || port < 1 || port > 65535) {
+      return 'Enter a port from 1 to 65535';
+    }
+    return null;
+  }
+
+  String? _streamUrlValidator(String? value) {
+    final text = (value ?? '').trim();
+    if (text.isEmpty) return null;
+    final uri = Uri.tryParse(text);
+    if (uri == null ||
+        uri.host.isEmpty ||
+        !const {'rtsp', 'http', 'https'}.contains(uri.scheme.toLowerCase())) {
+      return 'Enter a valid RTSP, HTTP, or HTTPS URL';
+    }
+    if (uri.userInfo.isNotEmpty) {
+      return 'Enter credentials in the username and password fields';
+    }
+    return null;
+  }
+
   Future<void> _test() async {
     if (_formKey.currentState?.validate() != true) return;
     if (isEditing && _password.text.isEmpty) {
@@ -614,6 +670,12 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
   }
 
   Future<bool> _prepareStreamUrl() async {
+    final directUrl = Uri.tryParse(_url.text.trim());
+    if (directUrl != null &&
+        directUrl.host == _cameraIp.text.trim() &&
+        _streamUrlValidator(_url.text) == null) {
+      return true;
+    }
     if (isEditing &&
         _cameraIp.text.trim() == originalHost &&
         _password.text.isEmpty) {
@@ -634,11 +696,13 @@ class _AddCameraDialogState extends State<_AddCameraDialog> {
   DiscoveredCamera? _cameraFromIp() {
     final host = _cameraIp.text.trim();
     if (_cameraIpValidator(host) != null) return null;
+    final port = int.tryParse(_onvifPort.text.trim());
+    if (port == null || port < 1 || port > 65535) return null;
     return DiscoveredCamera(
       id: 'manual-onvif-$host',
       name: _name.text.trim(),
       host: host,
-      serviceUrl: 'http://$host:2020/onvif/device_service',
+      serviceUrl: 'http://$host:$port/onvif/device_service',
     );
   }
 }

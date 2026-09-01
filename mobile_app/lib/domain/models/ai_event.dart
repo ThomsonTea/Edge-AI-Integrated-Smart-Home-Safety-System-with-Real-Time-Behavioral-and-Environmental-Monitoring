@@ -4,6 +4,7 @@ class AiEvent {
   final double? confidenceScore;
   final String? imagePath;
   final bool isAcknowledged;
+  final bool isPinned;
   final DateTime? timestamp;
   final int? premiseId;
   final int? profileId;
@@ -16,6 +17,7 @@ class AiEvent {
     this.confidenceScore,
     this.imagePath,
     required this.isAcknowledged,
+    this.isPinned = false,
     this.timestamp,
     this.premiseId,
     this.profileId,
@@ -33,6 +35,7 @@ class AiEvent {
       confidenceScore: _doubleFromJson(json['confidence_score']),
       imagePath: json['image_path']?.toString(),
       isAcknowledged: json['is_acknowledged'] == true,
+      isPinned: json['is_pinned'] == true,
       timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? ''),
       premiseId: int.tryParse(json['premise_id']?.toString() ?? ''),
       profileId: int.tryParse(json['profile_id']?.toString() ?? ''),

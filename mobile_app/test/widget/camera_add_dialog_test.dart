@@ -9,12 +9,18 @@ import 'package:smart_home_security_system/viewmodels/camera_feed_viewmodel.dart
 
 class _CameraServiceStub extends CameraService {
   final List<SecurityCamera> cameras;
+  Map<String, dynamic>? addedPayload;
   Map<String, dynamic>? updatedPayload;
 
   _CameraServiceStub({this.cameras = const []});
 
   @override
   Future<List<SecurityCamera>> fetchCameras() async => cameras;
+
+  @override
+  Future<void> addCamera(Map<String, dynamic> payload) async {
+    addedPayload = payload;
+  }
 
   @override
   Future<void> updateCamera(int id, Map<String, dynamic> payload) async {
@@ -67,12 +73,61 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Camera IP address *'), findsOneWidget);
+    expect(find.text('ONVIF port *'), findsOneWidget);
+    expect(find.text('Stream URL (optional)'), findsOneWidget);
     expect(find.text('Add camera'), findsOneWidget);
     expect(find.textContaining('Tapo'), findsNothing);
     expect(find.text('Scan'), findsNothing);
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
+    expect(find.byType(Dialog), findsNothing);
+  });
+
+  testWidgets('camera can be added with a direct RTSP URL', (tester) async {
+    final service = _CameraServiceStub();
+    final viewModel = CameraFeedViewModel(
+      tokenService: _TokenServiceStub(),
+      cameraService: service,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: CameraFeedScreen(viewModel: viewModel)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Add camera'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Camera IP address *'),
+      '192.168.1.50',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Stream URL (optional)'),
+      'rtsp://192.168.1.50:554/stream1',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Camera name *'),
+      'Front door',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Camera username *'),
+      'camera-user',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Camera password *'),
+      'camera-password',
+    );
+    await tester.tap(find.text('Add camera'));
+    await tester.pumpAndSettle();
+
+    expect(service.addedPayload, isNotNull);
+    expect(
+      service.addedPayload!['stream_url'],
+      'rtsp://192.168.1.50:554/stream1',
+    );
     expect(find.byType(Dialog), findsNothing);
   });
 

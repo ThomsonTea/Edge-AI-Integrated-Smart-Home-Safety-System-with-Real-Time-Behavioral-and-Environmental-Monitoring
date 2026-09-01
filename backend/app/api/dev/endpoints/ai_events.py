@@ -28,6 +28,7 @@ class AIEventResponse(BaseModel):
     confidence_score: Optional[float] = None
     image_path: Optional[str] = None
     is_acknowledged: bool
+    is_pinned: bool
     timestamp: Optional[datetime] = None
     premise_id: Optional[int] = None
     premise_name: Optional[str] = None
@@ -54,6 +55,10 @@ class BulkDeleteEventsRequest(BaseModel):
 class BulkDeleteEventsResponse(BaseModel):
     message: str
     deleted_count: int
+
+
+class EventPinRequest(BaseModel):
+    is_pinned: bool
 
 
 def _get_current_profile(
@@ -84,6 +89,7 @@ def _event_to_response(event: AIEvent) -> dict:
         "confidence_score": confidence_score_for_api(event.confidence_score),
         "image_path": event.image_path,
         "is_acknowledged": bool(event.is_acknowledged),
+        "is_pinned": bool(getattr(event, "is_pinned", False)),
         "timestamp": event.timestamp,
         "premise_id": event.premise_id,
         "premise_name": premise_name,
@@ -394,6 +400,31 @@ def acknowledge_event(
     db.commit()
     db.refresh(event)
 
+    return _event_to_response(event)
+
+
+@router.put("/{event_id}/pin", response_model=AIEventResponse)
+def set_event_pin(
+    request: EventPinRequest,
+    event_id: int = Path(..., ge=1),
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = _get_current_profile(current_user=current_user, db=db)
+    _ensure_event_delete_permission(user)
+    event = (
+        db.query(AIEvent)
+        .options(joinedload(AIEvent.premise), joinedload(AIEvent.profile))
+        .filter(AIEvent.id == event_id)
+        .first()
+    )
+    if event is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+
+    _ensure_event_access(user=user, event=event, action="pin")
+    event.is_pinned = request.is_pinned
+    db.commit()
+    db.refresh(event)
     return _event_to_response(event)
 
 

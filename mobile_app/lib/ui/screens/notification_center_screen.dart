@@ -156,8 +156,11 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     );
   }
 
-  void _openEventDetail(AiEvent event) {
-    Navigator.of(context).pushNamed(AppRoutes.eventDetail, arguments: event.id);
+  Future<void> _openEventDetail(AiEvent event) async {
+    await Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.eventDetail, arguments: event.id);
+    if (mounted) await _viewModel.refreshNotifications();
   }
 
   Future<void> _showDateFilterSheet() async {
@@ -494,10 +497,12 @@ class _AlertCenterSections extends StatelessWidget {
             severityFor: viewModel.severityFor,
             isAcknowledging: viewModel.isAcknowledging,
             isDeleting: viewModel.isDeleting,
+            isPinning: viewModel.isPinning,
             canDeleteEvents: viewModel.canDeleteEvents,
             onEventTap: onEventTap,
             onAcknowledge: viewModel.acknowledgeEvent,
             onDelete: (event) => _confirmDeleteEvent(context, viewModel, event),
+            onTogglePin: viewModel.toggleEventPin,
           ),
         ],
       ],

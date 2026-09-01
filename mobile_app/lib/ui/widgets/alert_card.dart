@@ -12,10 +12,12 @@ class AlertCard extends StatelessWidget {
   final AlertSeverity severity;
   final bool isAcknowledging;
   final bool isDeleting;
+  final bool isPinning;
   final bool canDelete;
   final VoidCallback onTap;
   final VoidCallback onAcknowledge;
   final VoidCallback? onDelete;
+  final VoidCallback? onTogglePin;
 
   const AlertCard({
     super.key,
@@ -23,10 +25,12 @@ class AlertCard extends StatelessWidget {
     required this.severity,
     required this.isAcknowledging,
     this.isDeleting = false,
+    this.isPinning = false,
     this.canDelete = false,
     required this.onTap,
     required this.onAcknowledge,
     this.onDelete,
+    this.onTogglePin,
   });
 
   @override
@@ -83,6 +87,9 @@ class AlertCard extends StatelessWidget {
                                   case _AlertCardAction.delete:
                                     onDelete?.call();
                                     break;
+                                  case _AlertCardAction.togglePin:
+                                    onTogglePin?.call();
+                                    break;
                                 }
                               },
                               itemBuilder: (context) => [
@@ -100,6 +107,25 @@ class AlertCard extends StatelessWidget {
                                     child: const ListTile(
                                       leading: Icon(Icons.check_circle_outline),
                                       title: Text('Acknowledge'),
+                                    ),
+                                  ),
+                                if (canDelete)
+                                  PopupMenuItem(
+                                    value: _AlertCardAction.togglePin,
+                                    enabled: !isPinning,
+                                    child: ListTile(
+                                      leading: Icon(
+                                        event.isPinned
+                                            ? Icons.push_pin
+                                            : Icons.push_pin_outlined,
+                                      ),
+                                      title: Text(
+                                        isPinning
+                                            ? 'Updating...'
+                                            : event.isPinned
+                                            ? 'Unpin Event'
+                                            : 'Pin Event',
+                                      ),
                                     ),
                                   ),
                                 if (canDelete)
@@ -171,6 +197,11 @@ class AlertCard extends StatelessWidget {
                               ? _safeColor(context)
                               : severityColor,
                         ),
+                        if (event.isPinned)
+                          const _MetaChip(
+                            icon: Icons.push_pin,
+                            label: 'Pinned',
+                          ),
                       ],
                     ),
                   ),
@@ -278,7 +309,7 @@ class AlertCard extends StatelessWidget {
   }
 }
 
-enum _AlertCardAction { viewDetails, acknowledge, delete }
+enum _AlertCardAction { viewDetails, acknowledge, togglePin, delete }
 
 class _SnapshotThumbnail extends StatelessWidget {
   final String url;

@@ -72,6 +72,14 @@ class AppDrawer extends StatelessWidget {
                 Navigator.pushNamed(context, AppRoutes.userAccess);
               },
             ),
+            _DrawerItem(
+              icon: Icons.storage_outlined,
+              label: "Data & Storage",
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, AppRoutes.dataStorage);
+              },
+            ),
           ],
 
           const Divider(),
