@@ -68,6 +68,9 @@ class BehavioralAnomalyConfig:
     enable_mediapipe_pose: bool = field(
         default_factory=lambda: _bool_from_env("ENABLE_MEDIAPIPE_POSE", False)
     )
+    show_pose_skeleton: bool = field(
+        default_factory=lambda: _bool_from_env("SHOW_POSE_SKELETON", False)
+    )
     pose_process_every_n_frames: int = field(
         default_factory=lambda: max(_int_from_env("POSE_PROCESS_EVERY_N_FRAMES", 4), 1)
     )
@@ -123,11 +126,15 @@ class BehavioralAnomalyService:
         self._active_anomalies: set[str] = set()
         self._tracking_started = False
         self._mp_pose_module: Any | None = None
+        self._mp_drawing_utils: Any | None = None
         self._pose_estimator: Any | None = None
         self._pose_init_failed = False
         self._pose_frame_counter = 0
         self._last_pose_process_time = 0.0
         self._last_pose_summary: PoseSummary | None = None
+        self._last_pose_landmarks: Any | None = None
+        self._last_pose_landmarks_at = 0.0
+        self._pose_overlay_error_logged = False
         self._pose_tracking_started = False
 
         if self.config.enabled:
@@ -142,7 +149,8 @@ class BehavioralAnomalyService:
                 print(
                     "ℹ️ MediaPipe pose mode requested "
                     f"(every_n={self.config.pose_process_every_n_frames}, "
-                    f"min_interval={self.config.pose_min_interval_seconds}s)"
+                    f"min_interval={self.config.pose_min_interval_seconds}s, "
+                    f"skeleton_overlay={self.config.show_pose_skeleton})"
                 )
         else:
             print("ℹ️ Behavior detection disabled.")
@@ -371,6 +379,8 @@ class BehavioralAnomalyService:
         self._active_anomalies.clear()
         self._tracking_started = False
         self._last_pose_summary = None
+        self._last_pose_landmarks = None
+        self._last_pose_landmarks_at = 0.0
         self._pose_tracking_started = False
 
     def _confirmed_fall(
@@ -516,11 +526,116 @@ class BehavioralAnomalyService:
             if landmarks is None:
                 return None
 
+            self._last_pose_landmarks = landmarks
+            self._last_pose_landmarks_at = current_time
             return self._pose_summary_from_landmarks(landmarks.landmark)
 
         except Exception as exc:
             print(f"[POSE] failed, using bbox fallback: {exc}")
             return None
+
+    def annotate_pose_frame(self, frame, *, now: float | None = None):
+        """Draw the latest BlazePose skeleton and fall state on a stream frame."""
+        if (
+            frame is None
+            or not self.config.enabled
+            or not self.config.enable_mediapipe_pose
+            or not self.config.show_pose_skeleton
+            or self._last_pose_landmarks is None
+            or self._mp_pose_module is None
+            or self._mp_drawing_utils is None
+        ):
+            return frame
+
+        current_time = now if now is not None else time.time()
+        landmark_max_age = max(
+            3.0,
+            self.config.pose_min_interval_seconds * 3,
+        )
+        if current_time - self._last_pose_landmarks_at > landmark_max_age:
+            return frame
+
+        label, color = self._pose_overlay_style(current_time)
+
+        try:
+            import cv2
+
+            drawing_spec = self._mp_drawing_utils.DrawingSpec
+            self._mp_drawing_utils.draw_landmarks(
+                frame,
+                self._last_pose_landmarks,
+                self._mp_pose_module.POSE_CONNECTIONS,
+                landmark_drawing_spec=drawing_spec(
+                    color=color,
+                    thickness=2,
+                    circle_radius=2,
+                ),
+                connection_drawing_spec=drawing_spec(
+                    color=color,
+                    thickness=2,
+                    circle_radius=1,
+                ),
+            )
+
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            font_scale = 0.55
+            thickness = 2
+            (text_width, text_height), baseline = cv2.getTextSize(
+                label,
+                font,
+                font_scale,
+                thickness,
+            )
+            left = 10
+            top = 10
+            padding = 6
+            cv2.rectangle(
+                frame,
+                (left, top),
+                (
+                    left + text_width + padding * 2,
+                    top + text_height + baseline + padding * 2,
+                ),
+                (20, 20, 20),
+                cv2.FILLED,
+            )
+            cv2.putText(
+                frame,
+                label,
+                (left + padding, top + text_height + padding),
+                font,
+                font_scale,
+                color,
+                thickness,
+                cv2.LINE_AA,
+            )
+            self._pose_overlay_error_logged = False
+        except Exception as exc:
+            if not self._pose_overlay_error_logged:
+                print(f"[POSE] Skeleton overlay unavailable: {exc}")
+                self._pose_overlay_error_logged = True
+
+        return frame
+
+    def _pose_overlay_style(
+        self,
+        current_time: float,
+    ) -> tuple[str, tuple[int, int, int]]:
+        if "fall_detected" in self._active_anomalies:
+            return "FALL DETECTED", (0, 0, 255)
+
+        if self._fall_candidate_since is not None:
+            elapsed = max(current_time - self._fall_candidate_since, 0.0)
+            return (
+                "FALL CANDIDATE "
+                f"{elapsed:.1f}/{self.config.fall_confirm_seconds:.1f}s",
+                (0, 165, 255),
+            )
+
+        if "prolonged_inactivity" in self._active_anomalies:
+            return "PROLONGED INACTIVITY", (0, 215, 255)
+
+        return "POSE NORMAL", (80, 220, 80)
 
     def _should_process_pose(self, current_time: float) -> bool:
         self._pose_frame_counter += 1
@@ -558,6 +673,7 @@ class BehavioralAnomalyService:
                 return False
 
             pose_module = getattr(solutions, "pose", None)
+            drawing_utils = getattr(solutions, "drawing_utils", None)
 
             if pose_module is None:
                 self._pose_init_failed = True
@@ -569,6 +685,12 @@ class BehavioralAnomalyService:
                 return False
 
             self._mp_pose_module = pose_module
+            self._mp_drawing_utils = drawing_utils
+            if self.config.show_pose_skeleton and drawing_utils is None:
+                print(
+                    "[POSE] MediaPipe drawing API unavailable; "
+                    "continuing pose detection without the skeleton overlay."
+                )
             self._pose_estimator = self._mp_pose_module.Pose(
                 static_image_mode=False,
                 model_complexity=0,

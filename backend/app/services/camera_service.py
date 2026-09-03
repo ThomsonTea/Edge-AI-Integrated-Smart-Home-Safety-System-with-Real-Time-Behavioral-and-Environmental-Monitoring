@@ -207,6 +207,10 @@ class CameraService:
                             )
 
                 annotated = results[0].plot()
+                annotated = self.behavior_detector.annotate_pose_frame(
+                    annotated,
+                    now=current_time,
+                )
 
                 with self.lock:
                     self.annotated_frame = annotated

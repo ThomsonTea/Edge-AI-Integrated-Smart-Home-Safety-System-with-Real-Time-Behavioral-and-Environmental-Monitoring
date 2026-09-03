@@ -5,6 +5,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import numpy as np
 from fastapi import HTTPException
 from passlib.context import CryptContext
 
@@ -1192,6 +1193,70 @@ class AIEventDeleteEndpointTests(unittest.TestCase):
             config = BehavioralAnomalyConfig()
 
         self.assertFalse(config.enable_mediapipe_pose)
+        self.assertFalse(config.show_pose_skeleton)
+
+    def test_behavior_detector_reads_pose_skeleton_setting(self):
+        with patch.dict(
+            os.environ,
+            {"SHOW_POSE_SKELETON": "true"},
+            clear=True,
+        ):
+            config = BehavioralAnomalyConfig()
+
+        self.assertTrue(config.show_pose_skeleton)
+
+    def test_pose_overlay_draws_landmarks_and_candidate_timer(self):
+        class FakeDrawingUtils:
+            class DrawingSpec:
+                def __init__(self, *, color, thickness, circle_radius):
+                    self.color = color
+                    self.thickness = thickness
+                    self.circle_radius = circle_radius
+
+            def __init__(self):
+                self.calls = []
+
+            def draw_landmarks(self, *args, **kwargs):
+                self.calls.append((args, kwargs))
+
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                show_pose_skeleton=True,
+                fall_confirm_seconds=4,
+            )
+        )
+        drawing_utils = FakeDrawingUtils()
+        detector._mp_drawing_utils = drawing_utils
+        detector._mp_pose_module = SimpleNamespace(POSE_CONNECTIONS={(0, 1)})
+        detector._last_pose_landmarks = object()
+        detector._last_pose_landmarks_at = 10
+        detector._fall_candidate_since = 9
+        frame = np.zeros((100, 240, 3), dtype=np.uint8)
+
+        result = detector.annotate_pose_frame(frame, now=10)
+
+        self.assertIs(result, frame)
+        self.assertEqual(len(drawing_utils.calls), 1)
+        connection_spec = drawing_utils.calls[0][1]["connection_drawing_spec"]
+        self.assertEqual(connection_spec.color, (0, 165, 255))
+        self.assertGreater(np.count_nonzero(frame), 0)
+
+    def test_pose_overlay_status_turns_red_for_confirmed_fall(self):
+        detector = BehavioralAnomalyService(
+            BehavioralAnomalyConfig(
+                enabled=True,
+                enable_mediapipe_pose=True,
+                show_pose_skeleton=True,
+            )
+        )
+        detector._active_anomalies.add("fall_detected")
+
+        label, color = detector._pose_overlay_style(10)
+
+        self.assertEqual(label, "FALL DETECTED")
+        self.assertEqual(color, (0, 0, 255))
 
     def test_behavior_detector_falls_back_when_mediapipe_import_fails(self):
         detector = BehavioralAnomalyService(
