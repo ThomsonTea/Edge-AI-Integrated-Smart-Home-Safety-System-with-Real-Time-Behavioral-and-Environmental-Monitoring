@@ -149,6 +149,7 @@ class SensorService:
         self._stop_event = threading.Event()
         self._last_saved_at: datetime | None = None
         self._last_alert_at: dict[str, datetime] = {}
+        self._active_alert_types: set[str] = set()
         self._disconnected_since: datetime | None = None
         self._latest: dict[str, Any] = {
             "status": "disabled" if not self.enabled else "disconnected",
@@ -213,6 +214,7 @@ class SensorService:
                 }
             )
         self._disconnected_since = None
+        self._clear_environment_alert(SENSOR_OFFLINE)
         self._evaluate_environment_alerts(parsed)
         return True
 
@@ -301,6 +303,7 @@ class SensorService:
 
         if status == "connected":
             self._disconnected_since = None
+            self._clear_environment_alert(SENSOR_OFFLINE)
         elif status == "disconnected" and self.enabled:
             self._evaluate_sensor_offline()
 
@@ -438,32 +441,38 @@ class SensorService:
 
         # MQ gas sensor readings drop when gas/smoke is detected, so low values
         # are treated as the alert condition.
-        if gas is not None and gas <= self._gas_alert_threshold:
+        gas_alert_active = gas is not None and gas <= self._gas_alert_threshold
+        if gas_alert_active:
             logger.warning(
                 "[SENSOR] Low gas sensor value detected: gas=%s threshold=%s",
                 gas,
                 self._gas_alert_threshold,
             )
             confidence = self._low_threshold_confidence(gas, self._gas_alert_threshold)
-            self._create_environment_alert(
+            self._activate_environment_alert(
                 GAS_ALERT,
                 confidence_score=confidence,
                 now=now,
             )
+        else:
+            self._clear_environment_alert(GAS_ALERT)
 
-        if (
+        temperature_alert_active = (
             temperature is not None
             and temperature >= self._temperature_alert_threshold
-        ):
+        )
+        if temperature_alert_active:
             confidence = self._threshold_confidence(
                 temperature,
                 self._temperature_alert_threshold,
             )
-            self._create_environment_alert(
+            self._activate_environment_alert(
                 HIGH_TEMPERATURE,
                 confidence_score=confidence,
                 now=now,
             )
+        else:
+            self._clear_environment_alert(HIGH_TEMPERATURE)
 
     def _evaluate_sensor_offline(self, *, now: datetime | None = None) -> None:
         if not self.enabled:
@@ -478,11 +487,38 @@ class SensorService:
         if elapsed < self._sensor_offline_seconds:
             return
 
-        self._create_environment_alert(
+        self._activate_environment_alert(
             SENSOR_OFFLINE,
             confidence_score=100,
             now=now,
         )
+
+    def _activate_environment_alert(
+        self,
+        event_type: str,
+        *,
+        confidence_score: float,
+        now: datetime,
+    ) -> bool:
+        """Create one event when a condition becomes active, not reminders."""
+        if event_type in self._active_alert_types:
+            return False
+
+        created = self._create_environment_alert(
+            event_type,
+            confidence_score=confidence_score,
+            now=now,
+        )
+        if created:
+            self._active_alert_types.add(event_type)
+        return created
+
+    def _clear_environment_alert(self, event_type: str) -> None:
+        if event_type not in self._active_alert_types:
+            return
+
+        self._active_alert_types.discard(event_type)
+        logger.info("[SENSOR] Environmental condition cleared: type=%s", event_type)
 
     def _create_environment_alert(
         self,

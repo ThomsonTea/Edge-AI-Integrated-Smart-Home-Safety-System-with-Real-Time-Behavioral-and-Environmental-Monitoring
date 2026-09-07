@@ -366,6 +366,58 @@ class SensorServiceTests(unittest.TestCase):
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(len(events), 2)
 
+    def test_persistent_gas_condition_creates_only_one_alert(self):
+        db = FakeDb()
+        now = datetime(2026, 6, 22, 12, 0, tzinfo=timezone.utc)
+        service = SensorService(
+            enabled=True,
+            premise_id=1,
+            db_session_factory=lambda: db,
+            gas_alert_threshold=300,
+            environment_alert_cooldown_seconds=120,
+        )
+
+        service._evaluate_environment_alerts(
+            {"temperature": 30, "gas": 100},
+            now=now,
+        )
+        service._evaluate_environment_alerts(
+            {"temperature": 30, "gas": 90},
+            now=now + timedelta(seconds=121),
+        )
+
+        events = [item for item in db.added if isinstance(item, AIEvent)]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].event_type, "gas_alert")
+
+    def test_gas_condition_can_alert_again_after_recovery(self):
+        db = FakeDb()
+        now = datetime(2026, 6, 22, 12, 0, tzinfo=timezone.utc)
+        service = SensorService(
+            enabled=True,
+            premise_id=1,
+            db_session_factory=lambda: db,
+            gas_alert_threshold=300,
+            environment_alert_cooldown_seconds=120,
+        )
+
+        service._evaluate_environment_alerts(
+            {"temperature": 30, "gas": 100},
+            now=now,
+        )
+        service._evaluate_environment_alerts(
+            {"temperature": 30, "gas": 960},
+            now=now + timedelta(seconds=60),
+        )
+        service._evaluate_environment_alerts(
+            {"temperature": 30, "gas": 100},
+            now=now + timedelta(seconds=121),
+        )
+
+        events = [item for item in db.added if isinstance(item, AIEvent)]
+        self.assertEqual(len(events), 2)
+        self.assertTrue(all(event.event_type == "gas_alert" for event in events))
+
     def test_disabled_service_does_not_create_environment_alerts(self):
         db = FakeDb()
         service = SensorService(
@@ -412,6 +464,34 @@ class SensorServiceTests(unittest.TestCase):
         events = [item for item in db.added if isinstance(item, AIEvent)]
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0].event_type, "sensor_offline")
+
+    def test_sensor_offline_alerts_once_until_sensor_reconnects(self):
+        db = FakeDb()
+        service = SensorService(
+            enabled=True,
+            premise_id=1,
+            db_session_factory=lambda: db,
+            sensor_offline_seconds=30,
+            environment_alert_cooldown_seconds=120,
+        )
+        now = datetime(2026, 6, 22, 12, 0, tzinfo=timezone.utc)
+
+        service._evaluate_sensor_offline(now=now)
+        service._evaluate_sensor_offline(now=now + timedelta(seconds=31))
+        service._evaluate_sensor_offline(now=now + timedelta(seconds=300))
+
+        events = [item for item in db.added if isinstance(item, AIEvent)]
+        self.assertEqual(len(events), 1)
+
+        service._set_status("connected")
+        service._evaluate_sensor_offline(now=now + timedelta(seconds=301))
+        service._evaluate_sensor_offline(now=now + timedelta(seconds=332))
+
+        events = [item for item in db.added if isinstance(item, AIEvent)]
+        self.assertEqual(len(events), 2)
+        self.assertTrue(
+            all(event.event_type == "sensor_offline" for event in events)
+        )
 
     def test_connected_reading_clears_offline_timer(self):
         db = FakeDb()

@@ -1,5 +1,6 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import '../routing/router.dart';
 import '../routing/routes.dart';
@@ -10,9 +11,11 @@ class NotificationService {
   static final NotificationService instance = NotificationService._();
 
   static const _notifiedEventIdsKey = 'notified_ai_event_ids';
-  static const _channelId = 'ai_event_alerts';
+  static const _channelId = 'ai_event_alerts_v2';
+  static const _legacyAlarmChannelId = 'ai_event_alerts';
   static const _channelName = 'AI Event Alerts';
-  static const _channelDescription = 'Real-time smart home security alerts';
+  static const _channelDescription =
+      'Smart home security alerts with a single notification sound';
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -37,6 +40,15 @@ class NotificationService {
       settings,
       onDidReceiveNotificationResponse: _handleNotificationResponse,
     );
+
+    // The original channel classified every AI event as an Android alarm.
+    // Android channel settings are persistent, so remove it before using the
+    // corrected event-notification channel.
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.deleteNotificationChannel(_legacyAlarmChannelId);
 
     await _requestPermissions();
     _isInitialized = true;
@@ -69,7 +81,7 @@ class NotificationService {
         eventId,
         '$priority Security Alert',
         message,
-        _notificationDetails(priority),
+        NotificationService.notificationDetailsForPriority(priority),
         payload: eventId.toString(),
       );
 
@@ -109,7 +121,8 @@ class NotificationService {
     return _storage.delete(key: _notifiedEventIdsKey);
   }
 
-  NotificationDetails _notificationDetails(String priority) {
+  @visibleForTesting
+  static NotificationDetails notificationDetailsForPriority(String priority) {
     final importance = priority == 'Critical'
         ? Importance.max
         : priority == 'Warning'
@@ -122,10 +135,20 @@ class NotificationService {
       channelDescription: _channelDescription,
       importance: importance,
       priority: Priority.high,
-      category: AndroidNotificationCategory.alarm,
+      category: AndroidNotificationCategory.event,
+      onlyAlertOnce: true,
+      ongoing: false,
+      autoCancel: true,
+      audioAttributesUsage: AudioAttributesUsage.notification,
     );
 
-    return NotificationDetails(android: androidDetails);
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    return NotificationDetails(android: androidDetails, iOS: iosDetails);
   }
 
   Future<Set<int>> _readNotifiedEventIds() async {
