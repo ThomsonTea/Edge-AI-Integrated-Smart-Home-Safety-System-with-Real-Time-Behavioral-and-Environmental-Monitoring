@@ -150,7 +150,7 @@ class BehavioralAnomalyService:
                     "ℹ️ MediaPipe pose mode requested "
                     f"(every_n={self.config.pose_process_every_n_frames}, "
                     f"min_interval={self.config.pose_min_interval_seconds}s, "
-                    f"skeleton_overlay={self.config.show_pose_skeleton})"
+                    f"default_skeleton_overlay={self.config.show_pose_skeleton})"
                 )
         else:
             print("ℹ️ Behavior detection disabled.")
@@ -540,7 +540,6 @@ class BehavioralAnomalyService:
             frame is None
             or not self.config.enabled
             or not self.config.enable_mediapipe_pose
-            or not self.config.show_pose_skeleton
             or self._last_pose_landmarks is None
             or self._mp_pose_module is None
             or self._mp_drawing_utils is None
@@ -686,7 +685,7 @@ class BehavioralAnomalyService:
 
             self._mp_pose_module = pose_module
             self._mp_drawing_utils = drawing_utils
-            if self.config.show_pose_skeleton and drawing_utils is None:
+            if drawing_utils is None:
                 print(
                     "[POSE] MediaPipe drawing API unavailable; "
                     "continuing pose detection without the skeleton overlay."

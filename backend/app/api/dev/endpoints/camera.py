@@ -218,14 +218,32 @@ def resolve_camera_stream(
 
 
 @router.get("/{camera_id}/video_feed")
-def camera_video_feed(camera_id: int, db: Session = Depends(get_db), token: dict = Depends(verify_token)):
-    camera = _camera_or_404(db, camera_id, _require_premise(_current_profile(db, token)))
+def camera_video_feed(
+    camera_id: int,
+    show_skeleton: bool | None = None,
+    db: Session = Depends(get_db),
+    token: dict = Depends(verify_token),
+):
+    camera = _camera_or_404(
+        db,
+        camera_id,
+        _require_premise(_current_profile(db, token)),
+    )
     if not camera.device.enabled:
         raise HTTPException(status_code=409, detail="Camera is disabled")
     camera_service.start_camera(camera_id)
-    return StreamingResponse(camera_service.generate_frames(camera_id), media_type="multipart/x-mixed-replace; boundary=frame")
+    return StreamingResponse(
+        camera_service.generate_frames(
+            camera_id,
+            show_pose_skeleton=show_skeleton,
+        ),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
 
 
 @router.get("/video_feed")
-def video_feed():
-    return StreamingResponse(camera_service.generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+def video_feed(show_skeleton: bool | None = None):
+    return StreamingResponse(
+        camera_service.generate_frames(show_pose_skeleton=show_skeleton),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )

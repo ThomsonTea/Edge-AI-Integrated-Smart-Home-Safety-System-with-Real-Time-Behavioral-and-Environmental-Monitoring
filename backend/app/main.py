@@ -44,6 +44,8 @@ def start_camera_services():
 
 @app.on_event("shutdown")
 def stop_background_services():
+    camera_service.stop()
+    sensor_service.stop()
     retention_scheduler.stop()
 
 @app.get("/")

@@ -7,8 +7,14 @@ import '../../theme/app_spacing.dart';
 class CameraWidget extends StatelessWidget {
   final String? jwtToken;
   final int? cameraId;
+  final bool showPoseSkeleton;
 
-  const CameraWidget({super.key, required this.jwtToken, this.cameraId});
+  const CameraWidget({
+    super.key,
+    required this.jwtToken,
+    this.cameraId,
+    this.showPoseSkeleton = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,6 +23,14 @@ class CameraWidget extends StatelessWidget {
     final dangerColor = Theme.of(context).brightness == Brightness.dark
         ? AppColors.dangerDark
         : AppColors.danger;
+    final feedPath = cameraId == null
+        ? '${AppConfig.apiBaseUrl}/camera/video_feed'
+        : '${AppConfig.apiBaseUrl}/camera/$cameraId/video_feed';
+    final streamUrl = Uri.parse(feedPath)
+        .replace(
+          queryParameters: {'show_skeleton': showPoseSkeleton.toString()},
+        )
+        .toString();
 
     return Container(
       height: 260,
@@ -34,10 +48,9 @@ class CameraWidget extends StatelessWidget {
               message: 'Sign in again to view the secure camera feed.',
             )
           : Mjpeg(
+              key: ValueKey(streamUrl),
               isLive: true,
-              stream: cameraId == null
-                  ? '${AppConfig.apiBaseUrl}/camera/video_feed'
-                  : '${AppConfig.apiBaseUrl}/camera/$cameraId/video_feed',
+              stream: streamUrl,
               headers: {'Authorization': 'Bearer $token'},
               error: (context, error, stack) {
                 return Center(

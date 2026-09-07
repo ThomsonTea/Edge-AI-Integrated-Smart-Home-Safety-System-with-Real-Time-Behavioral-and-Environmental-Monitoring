@@ -19,6 +19,7 @@ class CameraFeedScreen extends StatefulWidget {
 
 class _CameraFeedScreenState extends State<CameraFeedScreen> {
   late final CameraFeedViewModel _viewModel;
+  bool _showPoseSkeleton = true;
 
   @override
   void initState() {
@@ -109,10 +110,40 @@ class _CameraFeedScreenState extends State<CameraFeedScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
           if (_viewModel.selectedCamera != null) ...[
-            CameraWidget(
-              key: ValueKey(_viewModel.selectedCamera!.id),
-              jwtToken: _viewModel.jwtToken,
-              cameraId: _viewModel.selectedCamera!.id,
+            Stack(
+              children: [
+                CameraWidget(
+                  key: ValueKey(
+                    '${_viewModel.selectedCamera!.id}-$_showPoseSkeleton',
+                  ),
+                  jwtToken: _viewModel.jwtToken,
+                  cameraId: _viewModel.selectedCamera!.id,
+                  showPoseSkeleton: _showPoseSkeleton,
+                ),
+                Positioned(
+                  top: AppSpacing.sm,
+                  right: AppSpacing.sm,
+                  child: Material(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surface.withValues(alpha: 0.88),
+                    shape: const CircleBorder(),
+                    elevation: 2,
+                    child: IconButton(
+                      key: const ValueKey('show-pose-skeleton-button'),
+                      tooltip: _showPoseSkeleton
+                          ? 'Hide pose skeleton'
+                          : 'Show pose skeleton',
+                      isSelected: _showPoseSkeleton,
+                      selectedIcon: const Icon(Icons.accessibility_new),
+                      icon: const Icon(Icons.accessibility_new_outlined),
+                      onPressed: () {
+                        setState(() => _showPoseSkeleton = !_showPoseSkeleton);
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.lg),
           ],

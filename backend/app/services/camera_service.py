@@ -44,6 +44,7 @@ class CameraService:
         self.last_send_time = 0
         self.latest_frame = None
         self.annotated_frame = None
+        self.pose_annotated_frame = None
         self.last_detection_time = 0
 
         self.person_present = False
@@ -207,13 +208,14 @@ class CameraService:
                             )
 
                 annotated = results[0].plot()
-                annotated = self.behavior_detector.annotate_pose_frame(
-                    annotated,
+                pose_annotated = self.behavior_detector.annotate_pose_frame(
+                    annotated.copy(),
                     now=current_time,
                 )
 
                 with self.lock:
                     self.annotated_frame = annotated
+                    self.pose_annotated_frame = pose_annotated
                     self.last_detection_time = current_time
 
                 self.last_person_seen_time = current_time
@@ -233,10 +235,16 @@ class CameraService:
 
                     with self.lock:
                         self.annotated_frame = None
+                        self.pose_annotated_frame = None
                     self.behavior_detector.reset_person_state()
 
-    def generate_frames(self):
+    def generate_frames(self, *, show_pose_skeleton: bool | None = None):
         show_box_seconds = 1.5
+        skeleton_visible = (
+            self.behavior_detector.config.show_pose_skeleton
+            if show_pose_skeleton is None
+            else show_pose_skeleton
+        )
 
         while not self._stop_event.is_set():
             with self.lock:
@@ -249,7 +257,13 @@ class CameraService:
                         self.annotated_frame is not None
                         and current_time - self.last_detection_time <= show_box_seconds
                     ):
-                        frame_to_send = self.annotated_frame.copy()
+                        annotated = (
+                            self.pose_annotated_frame
+                            if skeleton_visible
+                            and self.pose_annotated_frame is not None
+                            else self.annotated_frame
+                        )
+                        frame_to_send = annotated.copy()
                     else:
                         frame_to_send = self.latest_frame.copy()
 

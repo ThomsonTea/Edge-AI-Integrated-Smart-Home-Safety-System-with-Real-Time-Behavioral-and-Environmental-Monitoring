@@ -88,11 +88,25 @@ class CameraManager:
         if worker is not None:
             worker.stop()
 
-    def generate_frames(self, camera_id: int | None = None):
+    def stop(self) -> None:
+        """Signal every managed camera worker to stop during app shutdown."""
+        with self._lock:
+            workers = list(self._workers.values())
+            self._workers.clear()
+
+        for worker in workers:
+            worker.stop()
+
+    def generate_frames(
+        self,
+        camera_id: int | None = None,
+        *,
+        show_pose_skeleton: bool | None = None,
+    ):
         worker = self._worker(camera_id)
         if worker is None:
             return iter(())
-        return worker.generate_frames()
+        return worker.generate_frames(show_pose_skeleton=show_pose_skeleton)
 
     def get_runtime_status(self, camera_id: int | None = None) -> dict:
         worker = self._worker(camera_id)

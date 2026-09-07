@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_mjpeg/flutter_mjpeg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_home_security_system/domain/models/security_camera.dart';
 import 'package:smart_home_security_system/services/camera_service.dart';
@@ -164,6 +165,21 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Hide pose skeleton'), findsOneWidget);
+    expect(
+      tester.widget<Mjpeg>(find.byType(Mjpeg)).stream,
+      contains('show_skeleton=true'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('show-pose-skeleton-button')));
+    await tester.pump();
+
+    expect(find.byTooltip('Show pose skeleton'), findsOneWidget);
+    expect(
+      tester.widget<Mjpeg>(find.byType(Mjpeg)).stream,
+      contains('show_skeleton=false'),
+    );
 
     await tester.tap(find.byTooltip('Edit camera'));
     await tester.pumpAndSettle();
