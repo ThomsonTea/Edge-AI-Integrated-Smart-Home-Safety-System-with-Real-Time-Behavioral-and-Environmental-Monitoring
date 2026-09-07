@@ -13,6 +13,7 @@ from app.models.event import AIEvent
 from app.models.profile import Profile
 from app.services.ai_event_service import create_ai_event
 from app.services.confidence import confidence_score_for_api
+from app.services.data_retention_service import delete_unreferenced_alert_images
 from app.services.notification_service import notification_payload_for_event
 from app.services.user_service import is_manager, is_owner
 
@@ -330,10 +331,16 @@ def bulk_delete_ai_events(
     for event in events:
         _ensure_event_access(user=user, event=event, action="delete")
 
+    image_paths = {
+        image_path
+        for event in events
+        if (image_path := getattr(event, "image_path", None))
+    }
     for event in events:
         db.delete(event)
 
     db.commit()
+    delete_unreferenced_alert_images(db, image_paths)
 
     return {
         "message": "Events deleted successfully",
@@ -450,7 +457,10 @@ def delete_ai_event(
 
     _ensure_event_access(user=user, event=event, action="delete")
 
+    image_path = getattr(event, "image_path", None)
+    image_paths = {image_path} if image_path else set()
     db.delete(event)
     db.commit()
+    delete_unreferenced_alert_images(db, image_paths)
 
     return {"message": "Event deleted successfully"}

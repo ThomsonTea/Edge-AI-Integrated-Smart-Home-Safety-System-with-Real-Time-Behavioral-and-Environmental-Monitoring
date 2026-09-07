@@ -15,6 +15,7 @@ from app.models.sensor import Sensor, SensorReading
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ALERT_STORAGE_DIR = (BACKEND_DIR / "storage" / "alerts").resolve()
+ALERT_IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_BATCH_SIZE = 500
 
 
@@ -34,11 +35,16 @@ class CleanupResult:
             setattr(self, field_name, getattr(self, field_name) + getattr(other, field_name))
 
 
-def _local_alert_path(image_path: str | None) -> Path | None:
+def _local_alert_path(
+    image_path: str | None,
+    *,
+    alert_storage_dir: Path | None = None,
+) -> Path | None:
     """Resolve an API image reference only when it is inside storage/alerts."""
     if not image_path:
         return None
 
+    storage_dir = (alert_storage_dir or ALERT_STORAGE_DIR).resolve()
     parsed_path = unquote(urlsplit(image_path).path).replace("\\", "/")
     marker = "/storage/alerts/"
     if marker in parsed_path:
@@ -50,29 +56,64 @@ def _local_alert_path(image_path: str | None) -> Path | None:
         if not candidate.is_absolute():
             return None
         try:
-            candidate.resolve().relative_to(ALERT_STORAGE_DIR)
+            candidate.resolve().relative_to(storage_dir)
         except (OSError, ValueError):
             return None
         return candidate.resolve()
 
-    candidate = (ALERT_STORAGE_DIR / relative_path).resolve()
+    candidate = (storage_dir / relative_path).resolve()
     try:
-        candidate.relative_to(ALERT_STORAGE_DIR)
+        candidate.relative_to(storage_dir)
     except ValueError:
         return None
     return candidate
 
 
-def _delete_unreferenced_images(db: Session, image_paths: set[str]) -> tuple[int, int]:
+def _referenced_local_alert_paths(
+    db: Session,
+    *,
+    alert_storage_dir: Path | None = None,
+) -> set[Path]:
+    """Return canonical files referenced by any AI event in the database."""
+    rows = (
+        db.query(AIEvent.image_path)
+        .filter(AIEvent.image_path.isnot(None))
+        .all()
+    )
+    referenced_paths: set[Path] = set()
+
+    for row in rows:
+        image_path = row[0]
+        local_path = _local_alert_path(
+            image_path,
+            alert_storage_dir=alert_storage_dir,
+        )
+        if local_path is not None:
+            referenced_paths.add(local_path)
+
+    return referenced_paths
+
+
+def delete_unreferenced_alert_images(
+    db: Session,
+    image_paths: set[str],
+    *,
+    alert_storage_dir: Path | None = None,
+) -> tuple[int, int]:
+    """Delete selected alert images only when no AI event still references them."""
     deleted = 0
     failures = 0
-    for image_path in image_paths:
-        still_referenced = db.query(AIEvent.id).filter(AIEvent.image_path == image_path).first()
-        if still_referenced is not None:
-            continue
+    referenced_paths = _referenced_local_alert_paths(
+        db,
+        alert_storage_dir=alert_storage_dir,
+    )
 
-        local_path = _local_alert_path(image_path)
-        if local_path is None:
+    for image_path in image_paths:
+        local_path = _local_alert_path(
+            image_path,
+            alert_storage_dir=alert_storage_dir,
+        )
+        if local_path is None or local_path in referenced_paths:
             continue
 
         try:
@@ -82,6 +123,62 @@ def _delete_unreferenced_images(db: Session, image_paths: set[str]) -> tuple[int
         except OSError as exc:
             failures += 1
             print(f"Retention cleanup could not delete image {local_path}: {exc}")
+    return deleted, failures
+
+
+def find_orphaned_alert_images(
+    db: Session,
+    *,
+    alert_storage_dir: Path | None = None,
+) -> list[Path]:
+    """Find image files in storage/alerts that no AI event references."""
+    storage_dir = (alert_storage_dir or ALERT_STORAGE_DIR).resolve()
+    if not storage_dir.exists():
+        return []
+
+    referenced_paths = _referenced_local_alert_paths(
+        db,
+        alert_storage_dir=storage_dir,
+    )
+    stored_images: set[Path] = set()
+    for path in storage_dir.rglob("*"):
+        if (
+            path.is_symlink()
+            or not path.is_file()
+            or path.suffix.lower() not in ALERT_IMAGE_SUFFIXES
+        ):
+            continue
+
+        resolved_path = path.resolve()
+        try:
+            resolved_path.relative_to(storage_dir)
+        except ValueError:
+            continue
+        stored_images.add(resolved_path)
+
+    return sorted(stored_images - referenced_paths)
+
+
+def delete_orphaned_alert_images(
+    db: Session,
+    *,
+    alert_storage_dir: Path | None = None,
+) -> tuple[list[Path], list[Path]]:
+    """Delete all orphaned alert images and return deleted and failed paths."""
+    deleted: list[Path] = []
+    failures: list[Path] = []
+
+    for image_path in find_orphaned_alert_images(
+        db,
+        alert_storage_dir=alert_storage_dir,
+    ):
+        try:
+            image_path.unlink()
+            deleted.append(image_path)
+        except OSError as exc:
+            failures.append(image_path)
+            print(f"Orphan cleanup could not delete image {image_path}: {exc}")
+
     return deleted, failures
 
 
@@ -121,7 +218,7 @@ def cleanup_premise_data(
         db.commit()
         result.events_deleted += len(events)
 
-        deleted, failures = _delete_unreferenced_images(db, image_paths)
+        deleted, failures = delete_unreferenced_alert_images(db, image_paths)
         result.images_deleted += deleted
         result.image_delete_failures += failures
 
@@ -148,7 +245,7 @@ def cleanup_premise_data(
             db.commit()
             result.image_references_cleared += len(events)
 
-            deleted, failures = _delete_unreferenced_images(db, image_paths)
+            deleted, failures = delete_unreferenced_alert_images(db, image_paths)
             result.images_deleted += deleted
             result.image_delete_failures += failures
 

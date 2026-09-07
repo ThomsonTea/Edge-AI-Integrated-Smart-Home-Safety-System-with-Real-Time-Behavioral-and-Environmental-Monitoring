@@ -112,6 +112,72 @@ class FakeAIEventDeleteDb:
 
 
 class AIEventDeleteEndpointTests(unittest.TestCase):
+    @patch("app.api.dev.endpoints.ai_events.delete_unreferenced_alert_images")
+    def test_delete_removes_unreferenced_image_after_database_commit(
+        self,
+        delete_images,
+    ):
+        user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
+        event = SimpleNamespace(
+            id=10,
+            premise_id=7,
+            image_path="/storage/alerts/event-10.jpg",
+        )
+        db = FakeAIEventDeleteDb(user=user, event=event)
+
+        def assert_committed(_db, _paths):
+            self.assertTrue(db.committed)
+            return 1, 0
+
+        delete_images.side_effect = assert_committed
+
+        delete_ai_event(
+            event_id=10,
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        delete_images.assert_called_once_with(
+            db,
+            {"/storage/alerts/event-10.jpg"},
+        )
+
+    @patch("app.api.dev.endpoints.ai_events.delete_unreferenced_alert_images")
+    def test_bulk_delete_removes_each_unreferenced_image(self, delete_images):
+        user = SimpleNamespace(id=1, group_type="manager", premise_id=7)
+        events = [
+            SimpleNamespace(
+                id=10,
+                premise_id=7,
+                image_path="/storage/alerts/shared.jpg",
+            ),
+            SimpleNamespace(
+                id=11,
+                premise_id=7,
+                image_path="/storage/alerts/shared.jpg",
+            ),
+            SimpleNamespace(
+                id=12,
+                premise_id=7,
+                image_path="/storage/alerts/unique.jpg",
+            ),
+        ]
+        db = FakeAIEventDeleteDb(user=user, event=events)
+
+        bulk_delete_ai_events(
+            request=BulkDeleteEventsRequest(event_ids=[10, 11, 12]),
+            current_user={"user_id": 1},
+            db=db,
+        )
+
+        delete_images.assert_called_once_with(
+            db,
+            {
+                "/storage/alerts/shared.jpg",
+                "/storage/alerts/unique.jpg",
+            },
+        )
+
     def test_owner_can_delete_own_premise_event(self):
         user = SimpleNamespace(id=1, group_type="owner", premise_id=7)
         event = SimpleNamespace(id=10, premise_id=7)

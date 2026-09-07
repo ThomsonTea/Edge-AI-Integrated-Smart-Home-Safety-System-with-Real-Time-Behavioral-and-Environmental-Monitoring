@@ -11,7 +11,12 @@ from sqlalchemy.pool import StaticPool
 from app.api.dev.api import api_router
 from app.db.database import Base
 from app.models import AIEvent, Device, Premise, PremiseSetting, Sensor, SensorReading
-from app.services.data_retention_service import cleanup_premise_data
+from app.services.data_retention_service import (
+    cleanup_premise_data,
+    delete_orphaned_alert_images,
+    delete_unreferenced_alert_images,
+    find_orphaned_alert_images,
+)
 
 
 class DataRetentionTests(unittest.TestCase):
@@ -115,6 +120,121 @@ class DataRetentionTests(unittest.TestCase):
                     cleanup_premise_data(self.db, settings, now=now)
 
             self.assertTrue(outside_file.exists())
+
+    def test_selected_image_is_deleted_only_after_last_reference_is_removed(self):
+        self.db.add(Premise(id=1, name="Home"))
+        self.db.add_all(
+            [
+                AIEvent(
+                    id=1,
+                    premise_id=1,
+                    event_type="unknown_person",
+                    image_path="/storage/alerts/shared.jpg",
+                ),
+                AIEvent(
+                    id=2,
+                    premise_id=1,
+                    event_type="unknown_person",
+                    image_path="https://api.example.com/storage/alerts/shared.jpg",
+                ),
+            ]
+        )
+        self.db.commit()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            alerts_dir = Path(temp_dir).resolve()
+            image = alerts_dir / "shared.jpg"
+            image.write_bytes(b"image")
+
+            first_event = self.db.query(AIEvent).filter(AIEvent.id == 1).first()
+            self.db.delete(first_event)
+            self.db.commit()
+            deleted, failures = delete_unreferenced_alert_images(
+                self.db,
+                {"/storage/alerts/shared.jpg"},
+                alert_storage_dir=alerts_dir,
+            )
+
+            self.assertEqual((deleted, failures), (0, 0))
+            self.assertTrue(image.exists())
+
+            second_event = self.db.query(AIEvent).filter(AIEvent.id == 2).first()
+            self.db.delete(second_event)
+            self.db.commit()
+            deleted, failures = delete_unreferenced_alert_images(
+                self.db,
+                {"/storage/alerts/shared.jpg"},
+                alert_storage_dir=alerts_dir,
+            )
+
+            self.assertEqual((deleted, failures), (1, 0))
+            self.assertFalse(image.exists())
+
+    def test_orphan_cleanup_deletes_only_unreferenced_image_files(self):
+        self.db.add(Premise(id=1, name="Home"))
+        self.db.add(
+            AIEvent(
+                id=1,
+                premise_id=1,
+                event_type="unknown_person",
+                image_path="/storage/alerts/referenced.jpg",
+            )
+        )
+        self.db.commit()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            alerts_dir = Path(temp_dir).resolve()
+            referenced = alerts_dir / "referenced.jpg"
+            orphaned = alerts_dir / "orphaned.png"
+            non_image = alerts_dir / "notes.txt"
+            referenced.write_bytes(b"referenced")
+            orphaned.write_bytes(b"orphaned")
+            non_image.write_text("keep")
+
+            found = find_orphaned_alert_images(
+                self.db,
+                alert_storage_dir=alerts_dir,
+            )
+            deleted, failures = delete_orphaned_alert_images(
+                self.db,
+                alert_storage_dir=alerts_dir,
+            )
+
+            self.assertEqual(found, [orphaned])
+            self.assertEqual(deleted, [orphaned])
+            self.assertEqual(failures, [])
+            self.assertTrue(referenced.exists())
+            self.assertFalse(orphaned.exists())
+            self.assertTrue(non_image.exists())
+
+    def test_orphan_cleanup_never_follows_symlinks_outside_alert_storage(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir).resolve()
+            alerts_dir = temp_path / "alerts"
+            alerts_dir.mkdir()
+            outside_image = temp_path / "outside.jpg"
+            outside_image.write_bytes(b"outside")
+            link = alerts_dir / "linked.jpg"
+
+            try:
+                link.symlink_to(outside_image)
+            except OSError:
+                self.skipTest("Symbolic links are unavailable on this platform")
+
+            found = find_orphaned_alert_images(
+                self.db,
+                alert_storage_dir=alerts_dir,
+            )
+            deleted, failures = delete_orphaned_alert_images(
+                self.db,
+                alert_storage_dir=alerts_dir,
+            )
+
+            self.assertEqual(found, [])
+            self.assertEqual(deleted, [])
+            self.assertEqual(failures, [])
+            self.assertTrue(outside_image.exists())
+            self.assertTrue(link.is_symlink())
 
 
 if __name__ == "__main__":
