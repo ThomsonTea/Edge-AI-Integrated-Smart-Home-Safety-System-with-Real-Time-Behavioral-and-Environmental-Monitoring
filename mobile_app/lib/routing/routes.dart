@@ -9,6 +9,7 @@ class AppRoutes {
   static const analytics = '/analytics';
   static const profile = '/profile';
   static const dataStorage = '/settings/data-storage';
+  static const emergencyContacts = '/emergency-contacts';
 
   static const userAccess = '/users';
 }

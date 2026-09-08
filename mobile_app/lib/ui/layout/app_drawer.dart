@@ -53,6 +53,15 @@ class AppDrawer extends StatelessWidget {
           ),
 
           _DrawerItem(
+            icon: Icons.contact_phone_outlined,
+            label: "Emergency Contacts",
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, AppRoutes.emergencyContacts);
+            },
+          ),
+
+          _DrawerItem(
             icon: Icons.insights,
             label: "Analytics",
             onTap: () {

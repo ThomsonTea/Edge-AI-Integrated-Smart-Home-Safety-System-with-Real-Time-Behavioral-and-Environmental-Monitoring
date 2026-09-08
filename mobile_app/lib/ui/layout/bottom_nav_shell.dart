@@ -8,6 +8,7 @@ import '../screens/camera_feed_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/notification_center_screen.dart';
 import '../screens/profile_screen.dart';
+import '../widgets/emergency_call_sheet.dart';
 import 'app_drawer.dart';
 
 class BottomNavShell extends StatefulWidget {
@@ -186,6 +187,13 @@ class _BottomNavShellState extends State<BottomNavShell> {
       appBar: AppBar(
         title: const Text("Smart Security System"),
         actions: [
+          IconButton(
+            key: const ValueKey('emergency-call-button'),
+            tooltip: 'Emergency call',
+            onPressed: () => EmergencyCallSheet.show(context),
+            color: colorScheme.error,
+            icon: const Icon(Icons.phone_in_talk),
+          ),
           Padding(
             padding: const EdgeInsets.only(right: AppSpacing.sm),
             child: Icon(Icons.shield_outlined, color: colorScheme.primary),

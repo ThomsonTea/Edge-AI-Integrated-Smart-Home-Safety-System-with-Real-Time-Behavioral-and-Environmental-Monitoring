@@ -6,6 +6,7 @@ from .endpoints import auth
 from .endpoints import user
 from .endpoints import camera
 from .endpoints import dashboard
+from .endpoints import emergency_contacts
 from .endpoints import notifications_ws
 from .endpoints import premise_settings
 from .endpoints import profile_me
@@ -21,6 +22,11 @@ api_router.include_router(camera.router, prefix="/camera", tags=["camera"])
 api_router.include_router(ai_events.router, prefix="/ai_events", tags=["ai_events"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(
+    emergency_contacts.router,
+    prefix="/emergency-contacts",
+    tags=["emergency contacts"],
+)
 api_router.include_router(sensors.router, prefix="/sensors", tags=["sensors"])
 api_router.include_router(premise_settings.router, prefix="/premise/settings", tags=["premise settings"])
 api_router.include_router(notifications_ws.router, tags=["notifications"])

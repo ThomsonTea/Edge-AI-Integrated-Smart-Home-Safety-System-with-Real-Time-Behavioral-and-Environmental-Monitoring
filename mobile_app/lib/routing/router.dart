@@ -5,6 +5,7 @@ import '../ui/screens/analytics_screen.dart';
 import '../ui/screens/auth_gate_screen.dart';
 import '../ui/screens/event_detail_screen.dart';
 import '../ui/screens/data_storage_screen.dart';
+import '../ui/screens/emergency_contacts_screen.dart';
 import '../ui/screens/login_screen.dart';
 import '../ui/screens/notification_center_screen.dart';
 import '../ui/screens/profile_screen.dart';
@@ -64,6 +65,11 @@ class AppRouter {
 
       case AppRoutes.dataStorage:
         return MaterialPageRoute(builder: (_) => const DataStorageScreen());
+
+      case AppRoutes.emergencyContacts:
+        return MaterialPageRoute(
+          builder: (_) => const EmergencyContactsScreen(),
+        );
 
       default:
         return MaterialPageRoute(
